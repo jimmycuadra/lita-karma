@@ -1,7 +1,6 @@
 require "lita"
 
 # TODO:
-# - Rate limiting
 # - Term modification lists
 # - Linking
 #
@@ -12,6 +11,8 @@ require "lita"
 module Lita
   module Handlers
     class Karma < Handler
+      RATE_LIMIT = 5 * 60 # 5 minutes
+
       listener :increment, /([^\s]{2,})\+\+/
       listener :decrement, /([^\s]{2,})--/
       listener :check, /([^\s]{2,})~~/
@@ -38,14 +39,24 @@ module Lita
       private
 
       def modify(delta)
-        user_id = message.user.id
-
         matches.each do |match|
           term = match[0]
-          score = storage.zincrby("terms", delta, term).to_i
-          storage.sadd("terms:#{term}:modified", user_id)
-          say "#{term}: #{score}"
+
+          if rate_limited?(message.user, term)
+            say "Sorry, #{message.user}, you can only upvote or downvote a " +
+              "term once per five minutes."
+          else
+            score = storage.zincrby("terms", delta, term).to_i
+            storage.sadd("terms:#{term}:modified", message.user.id)
+            storage.set("recent:#{message.user.id}:#{term}", 1)
+            storage.expire("recent:#{message.user.id}:#{term}", RATE_LIMIT)
+            say "#{term}: #{score}"
+          end
         end
+      end
+
+      def rate_limited?(user, term)
+        storage.ttl("recent:#{user.id}:#{term}") >= 0
       end
     end
 
