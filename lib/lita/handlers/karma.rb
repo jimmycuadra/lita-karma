@@ -68,21 +68,24 @@ module Lita
         matches.each do |match|
           term = match[0]
 
-          if rate_limited?(message.user, term)
+          if rate_limited?(term)
             say "Sorry, #{message.user}, you can only upvote or downvote a " +
               "term once per five minutes."
           else
-            score = storage.zincrby("terms", delta, term).to_i
-            storage.sadd("modified:#{term}", message.user.id)
-            storage.set("recent:#{message.user.id}:#{term}", 1)
-            storage.expire("recent:#{message.user.id}:#{term}", RATE_LIMIT)
-            say "#{term}: #{score}"
+            score, *unused = storage.multi do |multi|
+              multi.zincrby("terms", delta, term)
+              multi.sadd("modified:#{term}", message.user.id)
+              multi.set("recent:#{message.user.id}:#{term}", 1)
+              multi.expire("recent:#{message.user.id}:#{term}", RATE_LIMIT)
+            end
+
+            say "#{term}: #{score.to_i}"
           end
         end
       end
 
-      def rate_limited?(user, term)
-        storage.ttl("recent:#{user.id}:#{term}") >= 0
+      def rate_limited?(term)
+        storage.ttl("recent:#{message.user.id}:#{term}") >= 0
       end
 
       def list(redis_command)
