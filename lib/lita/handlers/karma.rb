@@ -1,7 +1,6 @@
 require "lita"
 
 # TODO:
-# - Term modification lists
 # - Linking
 #
 # lita:handlers:karma:terms { foo(3) }
@@ -38,6 +37,8 @@ module Lita
 
       def karma
         case args.first
+        when "modified"
+          modified
         when "worst"
           list(:zrange)
         else
@@ -79,6 +80,22 @@ module Lita
         end
 
         say terms
+      end
+
+      def modified
+        term = args[1]
+
+        if term.nil? || term.empty?
+          return say "You must tell me which term you are curious about."
+        end
+
+        users = storage.smembers("modified:#{term}")
+
+        if users.empty?
+          say "#{term} has never been modified."
+        else
+          say "#{term} has been modified by: #{users.join(", ")}"
+        end
       end
     end
 
