@@ -16,8 +16,8 @@ module Lita
       listener :decrement, /([^\s]{2,})--/
       listener :check, /([^\s]{2,})~~/
       command :karma, "karma"
-      # command :link, /([^\s]{2,})\s*\+=\s*([^\s]{2,})/
-      # command :unlink, /([^\s]{2,})\s*-=\s*([^\s]{2,})/
+      command :link, /([^\s]{2,})\s*\+=\s*([^\s]{2,})/
+      command :unlink, /([^\s]{2,})\s*-=\s*([^\s]{2,})/
 
       def increment
         modify(1)
@@ -43,6 +43,22 @@ module Lita
           list(:zrange)
         else
           list(:zrevrange)
+        end
+      end
+
+      def link
+        matches.each do |match|
+          term1, term2 = match
+          storage.sadd("links:#{term1}", term2)
+          say "#{term2} has been linked to #{term1}."
+        end
+      end
+
+      def unlink
+        matches.each do |match|
+          term1, term2 = match
+          storage.srem("links:#{term1}", term2)
+          say "#{term2} has been unlinked from #{term1}."
         end
       end
 
