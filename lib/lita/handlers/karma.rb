@@ -30,8 +30,11 @@ module Lita
       def check
         matches.each do |match|
           term = match[0]
-          score = storage.zscore("terms", term).to_i
-          say "#{term}: #{score}"
+          score = storage.zscore("terms", term)
+          storage.smembers("links:#{term}").each do |link|
+            score += storage.zscore("terms", link)
+          end
+          say "#{term}: #{score.to_i}"
         end
       end
 
@@ -49,16 +52,22 @@ module Lita
       def link
         matches.each do |match|
           term1, term2 = match
-          storage.sadd("links:#{term1}", term2)
-          say "#{term2} has been linked to #{term1}."
+          if storage.sadd("links:#{term1}", term2)
+            say "#{term2} has been linked to #{term1}."
+          else
+            say "#{term2} is already linked to #{term1}."
+          end
         end
       end
 
       def unlink
         matches.each do |match|
           term1, term2 = match
-          storage.srem("links:#{term1}", term2)
-          say "#{term2} has been unlinked from #{term1}."
+          if storage.srem("links:#{term1}", term2)
+            say "#{term2} has been unlinked from #{term1}."
+          else
+            say "#{term2} was not linked to #{term1}."
+          end
         end
       end
 
@@ -72,12 +81,13 @@ module Lita
             say "Sorry, #{message.user}, you can only upvote or downvote a " +
               "term once per five minutes."
           else
-            score, *unused = storage.multi do |multi|
-              multi.zincrby("terms", delta, term)
-              multi.sadd("modified:#{term}", message.user.id)
-              multi.set("recent:#{message.user.id}:#{term}", 1)
-              multi.expire("recent:#{message.user.id}:#{term}", RATE_LIMIT)
+            score = storage.zincrby("terms", delta, term)
+            storage.smembers("links:#{term}").each do |link|
+              score += storage.zscore("terms", link)
             end
+            storage.sadd("modified:#{term}", message.user.id)
+            storage.set("recent:#{message.user.id}:#{term}", 1)
+            storage.expire("recent:#{message.user.id}:#{term}", RATE_LIMIT)
 
             say "#{term}: #{score.to_i}"
           end
