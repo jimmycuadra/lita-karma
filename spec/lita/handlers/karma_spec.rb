@@ -7,4 +7,8 @@ describe Lita::Handlers::Karma, lita_handler: true do
   it { handles("#{robot.name}: karma").with(:karma) }
   it { handles("#{robot.name} foo += bar").with(:link) }
   it { handles("#{robot.name}: foo -= bar").with(:unlink) }
+
+  it "registers itself with Lita" do
+    expect(Lita.handlers).to include(described_class)
+  end
 end

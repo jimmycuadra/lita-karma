@@ -10,5 +10,7 @@ module Lita
       command :link, /([^\s]{2,})\s*\+=\s*([^\s]{2,})/
       command :unlink, /([^\s]{2,})\s*-=\s*([^\s]{2,})/
     end
+
+    Lita.register_handler(Karma)
   end
 end
