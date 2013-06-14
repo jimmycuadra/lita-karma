@@ -25,7 +25,7 @@ module Lita
           redis.smembers("links:#{term}").each do |link|
             score += redis.zscore("terms", link).to_i
           end
-          say "#{term}: #{score}"
+          reply "#{term}: #{score}"
         end
       end
 
@@ -47,7 +47,11 @@ module Lita
           "#{index + 1}. #{term_score[0]} (#{term_score[1].to_i})"
         end.join("\n")
 
-        say output
+        if output.length == 0
+          reply "There are no terms being tracked yet."
+        else
+          reply output
+        end
       end
 
       def link(matches)
@@ -55,9 +59,9 @@ module Lita
           term1, term2 = match
 
           if redis.sadd("links:#{term1}", term2)
-            say "#{term2} has been linked to #{term1}."
+            reply "#{term2} has been linked to #{term1}."
           else
-            say "#{term2} is already linked to #{term1}."
+            reply "#{term2} is already linked to #{term1}."
           end
         end
       end
@@ -67,9 +71,9 @@ module Lita
           term1, term2 = match
 
           if redis.srem("links:#{term1}", term2)
-            say "#{term2} has been unlinked from #{term1}."
+            reply "#{term2} has been unlinked from #{term1}."
           else
-            say "#{term2} is not linked to #{term1}."
+            reply "#{term2} is not linked to #{term1}."
           end
         end
       end
@@ -80,7 +84,7 @@ module Lita
         matches.each do |match|
           term = match[0]
           score = redis.zincrby("terms", delta, term).to_i
-          say "#{term}: #{score}"
+          reply "#{term}: #{score}"
         end
       end
     end
