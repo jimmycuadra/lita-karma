@@ -15,8 +15,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
     end
 
     it "matches multiple terms in one message" do
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 1")
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "bar: 1")
+      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 1", "bar: 1")
       send_test_message("foo++ bar++")
     end
 
@@ -35,8 +34,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
     end
 
     it "matches multiple terms in one message" do
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: -1")
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "bar: -1")
+      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: -1", "bar: -1")
       send_test_message("foo-- bar--")
     end
 
@@ -52,6 +50,15 @@ describe Lita::Handlers::Karma, lita_handler: true do
     it "says the term's current score" do
       expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 0")
       send_test_message("foo~~")
+    end
+
+    it "matches multiple terms in one message" do
+      expect(robot).to receive(:send_messages).with(
+        an_instance_of(Lita::Source),
+        "foo: 0",
+        "bar: 0"
+      )
+      send_test_message("foo~~ bar~~")
     end
   end
 

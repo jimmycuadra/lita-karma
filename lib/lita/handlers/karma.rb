@@ -19,14 +19,18 @@ module Lita
       end
 
       def check(matches)
+        output = []
+
         matches.each do |match|
           term = match[0]
           score = redis.zscore("terms", term).to_i
           redis.smembers("links:#{term}").each do |link|
             score += redis.zscore("terms", link).to_i
           end
-          reply "#{term}: #{score}"
+          output << "#{term}: #{score}"
         end
+
+        reply *output
       end
 
       def list(matches)
@@ -81,11 +85,15 @@ module Lita
       private
 
       def modify(matches, delta)
+        output = []
+
         matches.each do |match|
           term = match[0]
           score = redis.zincrby("terms", delta, term).to_i
-          reply "#{term}: #{score}"
+          output << "#{term}: #{score}"
         end
+
+        reply *output
       end
     end
 
