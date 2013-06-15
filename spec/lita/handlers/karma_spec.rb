@@ -8,53 +8,59 @@ describe Lita::Handlers::Karma, lita_handler: true do
   it { routes("#{robot.name}: foo += bar").to(:link) }
   it { routes("#{robot.name}: foo -= bar").to(:unlink) }
 
+  let(:source) { an_instance_of(Lita::Source) }
+
   describe "#increment" do
     it "increases the term's score by one and says the new score" do
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 1")
+      expect(robot).to receive(:send_messages).with(source, "foo: 1")
       send_test_message("foo++")
     end
 
     it "matches multiple terms in one message" do
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 1", "bar: 1")
+      expect(robot).to receive(:send_messages).with(source, "foo: 1", "bar: 1")
       send_test_message("foo++ bar++")
     end
 
     it "doesn't start from zero if the term already has a positive score" do
       allow(robot).to receive(:send_messages)
       send_test_message("foo++")
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 2")
+      expect(robot).to receive(:send_messages).with(source, "foo: 2")
       send_test_message("foo++")
     end
   end
 
   describe "#decrement" do
     it "decreases the term's score by one and says the new score" do
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: -1")
+      expect(robot).to receive(:send_messages).with(source, "foo: -1")
       send_test_message("foo--")
     end
 
     it "matches multiple terms in one message" do
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: -1", "bar: -1")
+      expect(robot).to receive(:send_messages).with(
+        source,
+        "foo: -1",
+        "bar: -1"
+      )
       send_test_message("foo-- bar--")
     end
 
     it "doesn't start from zero if the term already has a positive score" do
       allow(robot).to receive(:send_messages)
       send_test_message("foo++")
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 0")
+      expect(robot).to receive(:send_messages).with(source, "foo: 0")
       send_test_message("foo--")
     end
   end
 
   describe "#check" do
     it "says the term's current score" do
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 0")
+      expect(robot).to receive(:send_messages).with(source, "foo: 0")
       send_test_message("foo~~")
     end
 
     it "matches multiple terms in one message" do
       expect(robot).to receive(:send_messages).with(
-        an_instance_of(Lita::Source),
+        source,
         "foo: 0",
         "bar: 0"
       )
@@ -71,7 +77,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
     end
 
     it "lists the top 5 terms by default" do
-      expect(robot).to receive(:send_messages).with an_instance_of(Lita::Source), <<-MSG.chomp
+      expect(robot).to receive(:send_messages).with source, <<-MSG.chomp
 1. one (3)
 2. two (2)
 3. three (1)
@@ -82,7 +88,7 @@ MSG
     end
 
     it 'lists the bottom 5 terms when passed "worst"' do
-      expect(robot).to receive(:send_messages).with an_instance_of(Lita::Source), <<-MSG.chomp
+      expect(robot).to receive(:send_messages).with source, <<-MSG.chomp
 1. five (-1)
 2. four (0)
 3. three (1)
@@ -93,7 +99,7 @@ MSG
     end
 
     it "limits the list to the count passed as the second argument" do
-      expect(robot).to receive(:send_messages).with an_instance_of(Lita::Source), <<-MSG.chomp
+      expect(robot).to receive(:send_messages).with source, <<-MSG.chomp
 1. one (3)
 2. two (2)
 MSG
@@ -103,14 +109,20 @@ MSG
 
   describe "#link" do
     it "says that it's linked term 2 to term 1" do
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "bar has been linked to foo.")
+      expect(robot).to receive(:send_messages).with(
+        source,
+        "bar has been linked to foo."
+      )
       send_test_message("#{robot.name}: foo += bar")
     end
 
     it "says that term 2 was already linked to term 1 if it was" do
       allow(robot).to receive(:send_messages)
       send_test_message("#{robot.name}: foo += bar")
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "bar is already linked to foo.")
+      expect(robot).to receive(:send_messages).with(
+        source,
+        "bar is already linked to foo."
+      )
       send_test_message("#{robot.name}: foo += bar")
     end
 
@@ -118,7 +130,7 @@ MSG
       allow(robot).to receive(:send_messages)
       send_test_message("foo++ bar++")
       send_test_message("#{robot.name}: foo += bar")
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 2")
+      expect(robot).to receive(:send_messages).with(source, "foo: 2")
       send_test_message("foo~~")
     end
   end
@@ -127,12 +139,18 @@ MSG
     it "says that it's unlinked term 2 from term 1" do
       allow(robot).to receive(:send_messages)
       send_test_message("#{robot.name}: foo += bar")
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "bar has been unlinked from foo.")
+      expect(robot).to receive(:send_messages).with(
+        source,
+        "bar has been unlinked from foo."
+      )
       send_test_message("#{robot.name}: foo -= bar")
     end
 
     it "says that term 2 was not linked to term 1 if it wasn't" do
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "bar is not linked to foo.")
+      expect(robot).to receive(:send_messages).with(
+        source,
+        "bar is not linked to foo."
+      )
       send_test_message("#{robot.name}: foo -= bar")
     end
 
@@ -141,7 +159,7 @@ MSG
       send_test_message("foo++ bar++")
       send_test_message("#{robot.name}: foo += bar")
       send_test_message("#{robot.name}: foo -= bar")
-      expect(robot).to receive(:send_messages).with(an_instance_of(Lita::Source), "foo: 1")
+      expect(robot).to receive(:send_messages).with(source, "foo: 1")
       send_test_message("foo~~")
     end
   end
