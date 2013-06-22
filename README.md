@@ -10,6 +10,16 @@ Add lita-karma to your Lita instance's Gemfile:
 gem "lita-karma"
 ```
 
+## Configuration
+
+lita-karma has one option, the cooldown, which controls how long a user must wait after modifying a term before they can modify it again. The value should be an integer number of seconds. The default is 300 (5 minutes). Set it to `nil` to disable rate limiting.
+
+```
+Lita.configure do |config|
+  config.handlers.karma.cooldown = 600
+end
+```
+
 ## Usage
 
 Lita will add a karma point whenever it hears a term upvoted:
@@ -31,6 +41,12 @@ term~~
 ```
 
 To list the top scoring terms:
+
+```
+Lita: karma best
+```
+
+or simply:
 
 ```
 Lita: karma
@@ -58,7 +74,7 @@ bar++
 Lita: foo += bar
 > bar has been linked to foo.
 foo~~
-> foo: 2
+> foo: 2 (1), linked to: bar: 1
 bar~~
 > bar: 1
 Lita: foo -= bar
@@ -66,6 +82,8 @@ Lita: foo -= bar
 foo~~
 > foo: 1
 ```
+
+When a term is linked, the total karma score is displayed first, followed by the score of the term without its linked terms in parentheses.
 
 ## License
 
