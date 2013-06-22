@@ -94,15 +94,12 @@ module Lita
       private
 
       def modify(matches, delta)
-        output = []
-
         matches.each do |match|
           term = match[0]
-          score = redis.zincrby("terms", delta, term).to_i
-          output << "#{term}: #{score}"
+          redis.zincrby("terms", delta, term)
         end
 
-        reply *output
+        check(matches)
       end
     end
 
