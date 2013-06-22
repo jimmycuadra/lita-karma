@@ -99,8 +99,21 @@ module Lita
       def modify(matches, delta)
         matches.each do |match|
           term = match[0]
-          redis.zincrby("terms", delta, term)
-          redis.sadd("modified:#{term}", user.id)
+
+          ttl = redis.ttl("cooldown:#{user.id}:#{term}")
+          if ttl >= 0
+            cooldown_message =
+              "You cannot modify #{term} for another #{ttl} second"
+            cooldown_message << (ttl == 1 ? "." : "s.")
+            reply cooldown_message
+          else
+            redis.zincrby("terms", delta, term)
+            redis.sadd("modified:#{term}", user.id)
+            cooldown = Lita.config.handlers.karma.cooldown
+            if cooldown
+              redis.setex("cooldown:#{user.id}:#{term}", cooldown.to_i, 1)
+            end
+          end
         end
 
         check(matches)
@@ -125,6 +138,8 @@ module Lita
       end
     end
 
+    Lita.config.handlers.karma = Config.new
+    Lita.config.handlers.karma.cooldown = 300
     Lita.register_handler(Karma)
   end
 end

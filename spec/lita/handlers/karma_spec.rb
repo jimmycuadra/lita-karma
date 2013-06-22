@@ -1,6 +1,8 @@
 require "spec_helper"
 
 describe Lita::Handlers::Karma, lita: true do
+  before { Lita.config.handlers.karma.cooldown = nil }
+
   it { routes("foo++").to(:increment) }
   it { routes("foo--").to(:decrement) }
   it { routes("foo~~").to(:check) }
@@ -27,6 +29,13 @@ describe Lita::Handlers::Karma, lita: true do
       expect_reply("foo: 2")
       send_test_message("foo++")
     end
+
+    it "replies with a warning if term increment is on cooldown" do
+      Lita.config.handlers.karma.cooldown = 10
+      send_test_message("foo++")
+      expect_reply(/cannot modify foo/)
+      send_test_message("foo++")
+    end
   end
 
   describe "#decrement" do
@@ -43,6 +52,13 @@ describe Lita::Handlers::Karma, lita: true do
     it "doesn't start from zero if the term already has a positive score" do
       send_test_message("foo++")
       expect_reply("foo: 0")
+      send_test_message("foo--")
+    end
+
+    it "replies with a warning if term increment is on cooldown" do
+      Lita.config.handlers.karma.cooldown = 10
+      send_test_message("foo--")
+      expect_reply(/cannot modify foo/)
       send_test_message("foo--")
     end
   end
