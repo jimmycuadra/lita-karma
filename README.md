@@ -1,5 +1,9 @@
 # lita-karma
 
+[![Build Status](https://travis-ci.org/jimmycuadra/lita-karma.png)](https://travis-ci.org/jimmycuadra/lita-karma)
+[![Code Climate](https://codeclimate.com/github/jimmycuadra/lita-karma.png)](https://codeclimate.com/github/jimmycuadra/lita-karma)
+[![Coverage Status](https://coveralls.io/repos/jimmycuadra/lita-karma/badge.png)](https://coveralls.io/r/jimmycuadra/lita-karma)
+
 **lita-karma** is a handler for [Lita](https://github.com/jimmycuadra/lita) that tracks karma points for arbitrary terms. It listens for upvotes and downvotes and keeps a tally of the scores for them in Redis.
 
 ## Installation
