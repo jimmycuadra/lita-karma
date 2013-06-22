@@ -23,11 +23,20 @@ module Lita
 
         matches.each do |match|
           term = match[0]
-          score = redis.zscore("terms", term).to_i
+          own_score = score = redis.zscore("terms", term).to_i
+          links = []
           redis.smembers("links:#{term}").each do |link|
-            score += redis.zscore("terms", link).to_i
+            link_score = redis.zscore("terms", link).to_i
+            links << "#{link}: #{link_score}"
+            score += link_score
           end
-          output << "#{term}: #{score}"
+
+          string = "#{term}: #{score}"
+          unless links.empty?
+            string << " (#{own_score}), linked to: "
+            string << links.join(", ")
+          end
+          output << string
         end
 
         reply *output

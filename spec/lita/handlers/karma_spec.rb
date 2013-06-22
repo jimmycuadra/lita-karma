@@ -107,9 +107,10 @@ MSG
     end
 
     it "causes term 1's score to be modified by term 2's" do
-      send_test_message("foo++ bar++")
+      send_test_message("foo++ bar++ baz++")
       send_test_message("#{robot.name}: foo += bar")
-      expect_reply("foo: 2")
+      send_test_message("#{robot.name}: foo += baz")
+      expect_reply("foo: 3 (1), linked to: baz: 1, bar: 1")
       send_test_message("foo~~")
     end
   end
