@@ -76,40 +76,47 @@ describe Lita::Handlers::Karma, lita: true do
   end
 
   describe "#list" do
-    before do
-      send_test_message(
-        "one++ one++ one++ two++ two++ three++ four++ four-- five--"
-      )
+    it "replies with a warning if there are no terms" do
+      expect_reply(/no terms being tracked/)
+      send_test_message("#{robot.name}: karma")
     end
 
-    it "lists the top 5 terms by default" do
-      expect_reply <<-MSG.chomp
+    context "with modified terms" do
+      before do
+        send_test_message(
+          "one++ one++ one++ two++ two++ three++ four++ four-- five--"
+        )
+      end
+
+      it "lists the top 5 terms by default" do
+        expect_reply <<-MSG.chomp
 1. one (3)
 2. two (2)
 3. three (1)
 4. four (0)
 5. five (-1)
 MSG
-      send_test_message("#{robot.name}: karma")
-    end
+        send_test_message("#{robot.name}: karma")
+      end
 
-    it 'lists the bottom 5 terms when passed "worst"' do
-      expect_reply <<-MSG.chomp
+      it 'lists the bottom 5 terms when passed "worst"' do
+        expect_reply <<-MSG.chomp
 1. five (-1)
 2. four (0)
 3. three (1)
 4. two (2)
 5. one (3)
 MSG
-      send_test_message("#{robot.name}: karma worst")
-    end
+        send_test_message("#{robot.name}: karma worst")
+      end
 
-    it "limits the list to the count passed as the second argument" do
-      expect_reply <<-MSG.chomp
+      it "limits the list to the count passed as the second argument" do
+        expect_reply <<-MSG.chomp
 1. one (3)
 2. two (2)
 MSG
-      send_test_message("#{robot.name}: karma best 2")
+        send_test_message("#{robot.name}: karma best 2")
+      end
     end
   end
 
