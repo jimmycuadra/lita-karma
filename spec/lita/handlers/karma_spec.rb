@@ -6,6 +6,7 @@ describe Lita::Handlers::Karma, lita: true do
   it { routes("foo~~").to(:check) }
   it { routes("#{robot.name}: karma best").to(:list_best) }
   it { routes("#{robot.name}: karma worst").to(:list_worst) }
+  it { routes("#{robot.name}: karma modified").to(:modified) }
   it { routes("#{robot.name}: karma").to(:list_best) }
   it { routes("#{robot.name}: foo += bar").to(:link) }
   it { routes("#{robot.name}: foo -= bar").to(:unlink) }
@@ -135,6 +136,30 @@ MSG
       send_test_message("#{robot.name}: foo -= bar")
       expect_reply("foo: 1")
       send_test_message("foo~~")
+    end
+  end
+
+  describe "#modified" do
+    it "replies with the required format if a term is not provided" do
+      expect_reply(/^Format:/)
+      send_test_message("#{robot.name}: karma modified")
+    end
+
+    it "replies with the required format if the term is an empty string" do
+      expect_reply(/^Format:/)
+      send_test_message("#{robot.name}: karma modified '   '")
+    end
+
+    it "replies with a message if the term hasn't been modified" do
+      expect_reply(/never been modified/)
+      send_test_message("#{robot.name}: karma modified foo")
+    end
+
+    it "lists users who have modified the given term" do
+      allow(Lita::User).to receive(:find_by_id).and_return(user)
+      send_test_message("foo++")
+      expect_reply(user.name)
+      send_test_message("#{robot.name}: karma modified foo")
     end
   end
 end

@@ -6,11 +6,12 @@ module Lita
       route %r{([^\s]{2,})\+\+}, to: :increment
       route %r{([^\s]{2,})\-\-}, to: :decrement
       route %r{([^\s]{2,})~~}, to: :check
-      route %r{karma\s+worst}, to: :list_worst, command: true
-      route %r{karma\s+best}, to: :list_worst, command: true
-      route %r{karma}, to: :list_best, command: true
-      route %r{([^\s]{2,})\s*\+=\s*([^\s]{2,})}, to: :link, command: true
-      route %r{([^\s]{2,})\s*-=\s*([^\s]{2,})}, to: :unlink, command: true
+      route %r{^karma\s+worst}, to: :list_worst, command: true
+      route %r{^karma\s+best}, to: :list_best, command: true
+      route %r{^karma\s+modified}, to: :modified, command: true
+      route %r{^karma\s*$}, to: :list_best, command: true
+      route %r{^([^\s]{2,})\s*\+=\s*([^\s]{2,})}, to: :link, command: true
+      route %r{^([^\s]{2,})\s*-=\s*([^\s]{2,})}, to: :unlink, command: true
 
       def increment(matches)
         modify(matches, 1)
@@ -76,13 +77,30 @@ module Lita
         end
       end
 
+      def modified(matches)
+        term = args[1]
+
+        if term.nil? || term.strip.empty?
+          reply "Format: #{robot.name}: karma modified TERM"
+          return
+        end
+
+        user_ids = redis.smembers("modified:#{term}")
+
+        if user_ids.empty?
+          reply "#{term} has never been modified."
+        else
+          reply user_ids.map { |id| User.find_by_id(id).name }.join(", ")
+        end
+      end
+
       private
 
       def modify(matches, delta)
         matches.each do |match|
           term = match[0]
           redis.zincrby("terms", delta, term)
-          # redis.sadd("modified:#{term}", user.id)
+          redis.sadd("modified:#{term}", user.id)
         end
 
         check(matches)
