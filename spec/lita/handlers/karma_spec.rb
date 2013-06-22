@@ -4,7 +4,9 @@ describe Lita::Handlers::Karma, lita: true do
   it { routes("foo++").to(:increment) }
   it { routes("foo--").to(:decrement) }
   it { routes("foo~~").to(:check) }
-  it { routes("#{robot.name}: karma").to(:list) }
+  it { routes("#{robot.name}: karma best").to(:list_best) }
+  it { routes("#{robot.name}: karma worst").to(:list_worst) }
+  it { routes("#{robot.name}: karma").to(:list_best) }
   it { routes("#{robot.name}: foo += bar").to(:link) }
   it { routes("#{robot.name}: foo -= bar").to(:unlink) }
 

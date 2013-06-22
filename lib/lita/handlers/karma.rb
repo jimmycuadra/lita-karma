@@ -6,7 +6,9 @@ module Lita
       route %r{([^\s]{2,})\+\+}, to: :increment
       route %r{([^\s]{2,})\-\-}, to: :decrement
       route %r{([^\s]{2,})~~}, to: :check
-      route %r{karma}, to: :list, command: true
+      route %r{karma\s+worst}, to: :list_worst, command: true
+      route %r{karma\s+best}, to: :list_worst, command: true
+      route %r{karma}, to: :list_best, command: true
       route %r{([^\s]{2,})\s*\+=\s*([^\s]{2,})}, to: :link, command: true
       route %r{([^\s]{2,})\s*-=\s*([^\s]{2,})}, to: :unlink, command: true
 
@@ -42,29 +44,12 @@ module Lita
         reply *output
       end
 
-      def list(matches)
-        redis_command = case args.first
-        when "worst"
-          :zrange
-        else
-          :zrevrange
-        end
+      def list_best(matches)
+        list(:zrevrange)
+      end
 
-        n = (args[1] || 5).to_i - 1
-
-        terms_scores = redis.public_send(
-          redis_command, "terms", 0, n, with_scores: true
-        )
-
-        output = terms_scores.each_with_index.map do |term_score, index|
-          "#{index + 1}. #{term_score[0]} (#{term_score[1].to_i})"
-        end.join("\n")
-
-        if output.length == 0
-          reply "There are no terms being tracked yet."
-        else
-          reply output
-        end
+      def list_worst(matches)
+        list(:zrange)
       end
 
       def link(matches)
@@ -97,9 +82,28 @@ module Lita
         matches.each do |match|
           term = match[0]
           redis.zincrby("terms", delta, term)
+          # redis.sadd("modified:#{term}", user.id)
         end
 
         check(matches)
+      end
+
+      def list(redis_command)
+        n = (args[1] || 5).to_i - 1
+
+        terms_scores = redis.public_send(
+          redis_command, "terms", 0, n, with_scores: true
+        )
+
+        output = terms_scores.each_with_index.map do |term_score, index|
+          "#{index + 1}. #{term_score[0]} (#{term_score[1].to_i})"
+        end.join("\n")
+
+        if output.length == 0
+          reply "There are no terms being tracked yet."
+        else
+          reply output
+        end
       end
     end
 
