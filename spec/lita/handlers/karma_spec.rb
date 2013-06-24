@@ -136,7 +136,7 @@ MSG
       send_test_message("foo++ bar++ baz++")
       send_test_message("#{robot.name}: foo += bar")
       send_test_message("#{robot.name}: foo += baz")
-      expect_reply("foo: 3 (1), linked to: baz: 1, bar: 1")
+      expect_reply(/foo: 3 \(1\), linked to: ba[rz]: 1, ba[rz]: 1/)
       send_test_message("foo~~")
     end
   end
