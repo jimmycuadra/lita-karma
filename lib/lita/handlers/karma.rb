@@ -106,6 +106,7 @@ module Lita
               "You cannot modify #{term} for another #{ttl} second"
             cooldown_message << (ttl == 1 ? "." : "s.")
             reply cooldown_message
+            return
           else
             redis.zincrby("terms", delta, term)
             redis.sadd("modified:#{term}", user.id)

@@ -34,6 +34,7 @@ describe Lita::Handlers::Karma, lita: true do
       Lita.config.handlers.karma.cooldown = 10
       send_test_message("foo++")
       expect_reply(/cannot modify foo/)
+      expect_no_reply(/foo:/)
       send_test_message("foo++")
     end
   end
@@ -59,6 +60,7 @@ describe Lita::Handlers::Karma, lita: true do
       Lita.config.handlers.karma.cooldown = 10
       send_test_message("foo--")
       expect_reply(/cannot modify foo/)
+      expect_no_reply(/foo:/)
       send_test_message("foo--")
     end
   end
