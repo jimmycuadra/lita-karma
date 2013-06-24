@@ -13,6 +13,12 @@ describe Lita::Handlers::Karma, lita: true do
   it { routes("#{robot.name}: foo += bar").to(:link) }
   it { routes("#{robot.name}: foo -= bar").to(:unlink) }
 
+  describe ".help" do
+    it "returns a hash of command help" do
+      expect(described_class.help).to be_a(Hash)
+    end
+  end
+
   describe "#increment" do
     it "increases the term's score by one and says the new score" do
       expect_reply("foo: 1")

@@ -3,6 +3,21 @@ require "lita"
 module Lita
   module Handlers
     class Karma < Handler
+      def self.help
+        name = Lita.config.robot.mention_name || Lita.config.robot.name
+
+        {
+          "TERM++" => "Increments TERM by one.",
+          "TERM--" => "Decrements TERM by one.",
+          "TERM~~" => "Shows the current karma of TERM.",
+          "#{name}: karma best [N]" => "Lists the top N terms by karma. N defaults to 5.",
+          "#{name}: karma worst [N]" => "Lists the bottom N terms by karma. N defaults to 5.",
+          "#{name}: karma modified TERM" => "Lists the names of users who have upvoted or downvoted TERM.",
+          "#{name}: TERM1 += TERM2" => "Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its own and TERM2's karma.",
+          "#{name}: TERM1 -= TERM2" => "Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum of its own and TERM2's karma.",
+        }
+      end
+
       route %r{([^\s]{2,})\+\+}, to: :increment
       route %r{([^\s]{2,})\-\-}, to: :decrement
       route %r{([^\s]{2,})~~}, to: :check
