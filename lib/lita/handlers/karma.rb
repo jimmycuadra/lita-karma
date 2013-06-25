@@ -3,30 +3,25 @@ require "lita"
 module Lita
   module Handlers
     class Karma < Handler
-      def self.help
-        name = Lita.config.robot.mention_name || Lita.config.robot.name
-
-        {
-          "TERM++" => "Increments TERM by one.",
-          "TERM--" => "Decrements TERM by one.",
-          "TERM~~" => "Shows the current karma of TERM.",
-          "#{name}: karma best [N]" => "Lists the top N terms by karma. N defaults to 5.",
-          "#{name}: karma worst [N]" => "Lists the bottom N terms by karma. N defaults to 5.",
-          "#{name}: karma modified TERM" => "Lists the names of users who have upvoted or downvoted TERM.",
-          "#{name}: TERM1 += TERM2" => "Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its own and TERM2's karma.",
-          "#{name}: TERM1 -= TERM2" => "Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum of its own and TERM2's karma.",
-        }
-      end
-
-      route %r{([^\s]{2,})\+\+}, to: :increment
-      route %r{([^\s]{2,})\-\-}, to: :decrement
-      route %r{([^\s]{2,})~~}, to: :check
-      route %r{^karma\s+worst}, to: :list_worst, command: true
-      route %r{^karma\s+best}, to: :list_best, command: true
-      route %r{^karma\s+modified}, to: :modified, command: true
+      route %r{([^\s]{2,})\+\+}, to: :increment, help: { "TERM++" => "Increments TERM by one." }
+      route %r{([^\s]{2,})\-\-}, to: :decrement, help: { "TERM--" => "Decrements TERM by one." }
+      route %r{([^\s]{2,})~~}, to: :check, help: { "TERM~~" => "Shows the current karma of TERM." }
+      route %r{^karma\s+worst}, to: :list_worst, command: true, help: {
+        "karma worst [N]" => "Lists the bottom N terms by karma. N defaults to 5."
+      }
+      route %r{^karma\s+best}, to: :list_best, command: true, help: {
+        "karma best [N]" => "Lists the top N terms by karma. N defaults to 5."
+      }
+      route %r{^karma\s+modified}, to: :modified, command: true, help: {
+        "karma modified TERM" => "Lists the names of users who have upvoted or downvoted TERM."
+      }
       route %r{^karma\s*$}, to: :list_best, command: true
-      route %r{^([^\s]{2,})\s*\+=\s*([^\s]{2,})}, to: :link, command: true
-      route %r{^([^\s]{2,})\s*-=\s*([^\s]{2,})}, to: :unlink, command: true
+      route %r{^([^\s]{2,})\s*\+=\s*([^\s]{2,})}, to: :link, command: true, help: {
+        "TERM1 += TERM2" => "Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its own and TERM2's karma."
+      }
+      route %r{^([^\s]{2,})\s*-=\s*([^\s]{2,})}, to: :unlink, command: true, help: {
+        "TERM1 -= TERM2" => "Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum of its own and TERM2's karma."
+      }
 
       def increment(matches)
         modify(matches, 1)
