@@ -3,38 +3,38 @@ require "lita"
 module Lita
   module Handlers
     class Karma < Handler
-      route %r{([^\s]{2,})\+\+}, to: :increment, help: { "TERM++" => "Increments TERM by one." }
-      route %r{([^\s]{2,})\-\-}, to: :decrement, help: { "TERM--" => "Decrements TERM by one." }
-      route %r{([^\s]{2,})~~}, to: :check, help: { "TERM~~" => "Shows the current karma of TERM." }
-      route %r{^karma\s+worst}, to: :list_worst, command: true, help: {
+      route %r{([^\s]{2,})\+\+}, :increment, help: { "TERM++" => "Increments TERM by one." }
+      route %r{([^\s]{2,})\-\-}, :decrement, help: { "TERM--" => "Decrements TERM by one." }
+      route %r{([^\s]{2,})~~}, :check, help: { "TERM~~" => "Shows the current karma of TERM." }
+      route %r{^karma\s+worst}, :list_worst, command: true, help: {
         "karma worst [N]" => "Lists the bottom N terms by karma. N defaults to 5."
       }
-      route %r{^karma\s+best}, to: :list_best, command: true, help: {
+      route %r{^karma\s+best}, :list_best, command: true, help: {
         "karma best [N]" => "Lists the top N terms by karma. N defaults to 5."
       }
-      route %r{^karma\s+modified}, to: :modified, command: true, help: {
+      route %r{^karma\s+modified}, :modified, command: true, help: {
         "karma modified TERM" => "Lists the names of users who have upvoted or downvoted TERM."
       }
-      route %r{^karma\s*$}, to: :list_best, command: true
-      route %r{^([^\s]{2,})\s*\+=\s*([^\s]{2,})}, to: :link, command: true, help: {
+      route %r{^karma\s*$}, :list_best, command: true
+      route %r{^([^\s]{2,})\s*\+=\s*([^\s]{2,})}, :link, command: true, help: {
         "TERM1 += TERM2" => "Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its own and TERM2's karma."
       }
-      route %r{^([^\s]{2,})\s*-=\s*([^\s]{2,})}, to: :unlink, command: true, help: {
+      route %r{^([^\s]{2,})\s*-=\s*([^\s]{2,})}, :unlink, command: true, help: {
         "TERM1 -= TERM2" => "Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum of its own and TERM2's karma."
       }
 
-      def increment(matches)
-        modify(matches, 1)
+      def increment(response)
+        modify(response, 1)
       end
 
-      def decrement(matches)
-        modify(matches, -1)
+      def decrement(response)
+        modify(response, -1)
       end
 
-      def check(matches)
+      def check(response)
         output = []
 
-        matches.each do |match|
+        response.matches.each do |match|
           term = match[0]
           own_score = score = redis.zscore("terms", term).to_i
           links = []
@@ -52,86 +52,93 @@ module Lita
           output << string
         end
 
-        reply *output
+        response.reply *output
       end
 
-      def list_best(matches)
-        list(:zrevrange)
+      def list_best(response)
+        list(response, :zrevrange)
       end
 
-      def list_worst(matches)
-        list(:zrange)
+      def list_worst(response)
+        list(response, :zrange)
       end
 
-      def link(matches)
-        matches.each do |match|
+      def link(response)
+        response.matches.each do |match|
           term1, term2 = match
 
           if redis.sadd("links:#{term1}", term2)
-            reply "#{term2} has been linked to #{term1}."
+            response.reply "#{term2} has been linked to #{term1}."
           else
-            reply "#{term2} is already linked to #{term1}."
+            response.reply "#{term2} is already linked to #{term1}."
           end
         end
       end
 
-      def unlink(matches)
-        matches.each do |match|
+      def unlink(response)
+        response.matches.each do |match|
           term1, term2 = match
 
           if redis.srem("links:#{term1}", term2)
-            reply "#{term2} has been unlinked from #{term1}."
+            response.reply "#{term2} has been unlinked from #{term1}."
           else
-            reply "#{term2} is not linked to #{term1}."
+            response.reply "#{term2} is not linked to #{term1}."
           end
         end
       end
 
-      def modified(matches)
-        term = args[1]
+      def modified(response)
+        term = response.args[1]
 
         if term.nil? || term.strip.empty?
-          reply "Format: #{robot.name}: karma modified TERM"
+          response.reply "Format: #{robot.name}: karma modified TERM"
           return
         end
 
         user_ids = redis.smembers("modified:#{term}")
 
         if user_ids.empty?
-          reply "#{term} has never been modified."
+          response.reply "#{term} has never been modified."
         else
-          reply user_ids.map { |id| User.find_by_id(id).name }.join(", ")
+          output = user_ids.map do |id|
+            User.find_by_id(id).name
+          end.join(", ")
+          response.reply output
         end
       end
 
       private
 
-      def modify(matches, delta)
-        matches.each do |match|
+      def modify(response, delta)
+        response.matches.each do |match|
           term = match[0]
 
-          ttl = redis.ttl("cooldown:#{user.id}:#{term}")
+          ttl = redis.ttl("cooldown:#{response.user.id}:#{term}")
           if ttl >= 0
             cooldown_message =
               "You cannot modify #{term} for another #{ttl} second"
             cooldown_message << (ttl == 1 ? "." : "s.")
-            reply cooldown_message
+            response.reply cooldown_message
             return
           else
             redis.zincrby("terms", delta, term)
-            redis.sadd("modified:#{term}", user.id)
+            redis.sadd("modified:#{term}", response.user.id)
             cooldown = Lita.config.handlers.karma.cooldown
             if cooldown
-              redis.setex("cooldown:#{user.id}:#{term}", cooldown.to_i, 1)
+              redis.setex(
+                "cooldown:#{response.user.id}:#{term}",
+                cooldown.to_i,
+                1
+              )
             end
           end
         end
 
-        check(matches)
+        check(response)
       end
 
-      def list(redis_command)
-        n = (args[1] || 5).to_i - 1
+      def list(response, redis_command)
+        n = (response.args[1] || 5).to_i - 1
 
         terms_scores = redis.public_send(
           redis_command, "terms", 0, n, with_scores: true
@@ -142,9 +149,9 @@ module Lita
         end.join("\n")
 
         if output.length == 0
-          reply "There are no terms being tracked yet."
+          response.reply "There are no terms being tracked yet."
         else
-          reply output
+          response.reply output
         end
       end
     end
