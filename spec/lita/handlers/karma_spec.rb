@@ -1,6 +1,6 @@
 require "spec_helper"
 
-describe Lita::Handlers::Karma, lita: true do
+describe Lita::Handlers::Karma, lita_handler: true do
   before { Lita.config.handlers.karma.cooldown = nil }
 
   it { routes("foo++").to(:increment) }

@@ -23,6 +23,10 @@ module Lita
         "TERM1 -= TERM2" => "Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum of its own and TERM2's karma."
       }
 
+      def self.default_config(config)
+        config.cooldown = 300
+      end
+
       def increment(response)
         modify(response, 1)
       end
@@ -156,8 +160,6 @@ module Lita
       end
     end
 
-    Lita.config.handlers.karma = Config.new
-    Lita.config.handlers.karma.cooldown = 300
     Lita.register_handler(Karma)
   end
 end
