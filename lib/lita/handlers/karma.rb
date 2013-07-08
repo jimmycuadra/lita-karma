@@ -39,7 +39,7 @@ module Lita
         output = []
 
         response.matches.each do |match|
-          term = match[0]
+          term = normalize_term(match[0])
           own_score = score = redis.zscore("terms", term).to_i
           links = []
           redis.smembers("links:#{term}").each do |link|
@@ -69,7 +69,7 @@ module Lita
 
       def link(response)
         response.matches.each do |match|
-          term1, term2 = match
+          term1, term2 = normalize_term(match[0]), normalize_term(match[1])
 
           if redis.sadd("links:#{term1}", term2)
             response.reply "#{term2} has been linked to #{term1}."
@@ -81,7 +81,7 @@ module Lita
 
       def unlink(response)
         response.matches.each do |match|
-          term1, term2 = match
+          term1, term2 = normalize_term(match[0]), normalize_term(match[1])
 
           if redis.srem("links:#{term1}", term2)
             response.reply "#{term2} has been unlinked from #{term1}."
@@ -92,9 +92,9 @@ module Lita
       end
 
       def modified(response)
-        term = response.args[1]
+        term = normalize_term(response.args[1])
 
-        if term.nil? || term.strip.empty?
+        if term.empty?
           response.reply "Format: #{robot.name}: karma modified TERM"
           return
         end
@@ -115,7 +115,7 @@ module Lita
 
       def modify(response, delta)
         response.matches.each do |match|
-          term = match[0]
+          term = normalize_term(match[0])
 
           ttl = redis.ttl("cooldown:#{response.user.id}:#{term}")
           if ttl >= 0
@@ -139,6 +139,10 @@ module Lita
         end
 
         check(response)
+      end
+
+      def normalize_term(term)
+        term.to_s.downcase.strip
       end
 
       def list(response, redis_command)

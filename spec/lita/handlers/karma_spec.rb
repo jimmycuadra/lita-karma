@@ -36,6 +36,12 @@ describe Lita::Handlers::Karma, lita_handler: true do
       send_message("foo++")
       expect(replies.last).to match(/cannot modify foo/)
     end
+
+    it "is case insensitive" do
+      send_message("foo++")
+      send_message("FOO++")
+      expect(replies.last).to eq("foo: 2")
+    end
   end
 
   describe "#decrement" do
