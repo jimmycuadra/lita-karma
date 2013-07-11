@@ -5,25 +5,53 @@ module Lita
     class Karma < Handler
       TERM_REGEX = /[\[\]\w\._\-|\{\}]{2,}/
 
-      route %r{(#{TERM_REGEX.source})\+\+}, :increment, help: { "TERM++" => "Increments TERM by one." }
-      route %r{(#{TERM_REGEX.source})\-\-}, :decrement, help: { "TERM--" => "Decrements TERM by one." }
-      route %r{(#{TERM_REGEX.source})~~}, :check, help: { "TERM~~" => "Shows the current karma of TERM." }
+      route %r{(#{TERM_REGEX.source})\+\+}, :increment, help: {
+        "TERM++" => "Increments TERM by one."
+      }
+      route %r{(#{TERM_REGEX.source})\-\-}, :decrement, help: {
+        "TERM--" => "Decrements TERM by one."
+      }
+      route %r{(#{TERM_REGEX.source})~~}, :check, help: {
+        "TERM~~" => "Shows the current karma of TERM."
+      }
       route %r{^karma\s+worst}, :list_worst, command: true, help: {
-        "karma worst [N]" => "Lists the bottom N terms by karma. N defaults to 5."
+        "karma worst [N]" => <<-HELP.chomp
+Lists the bottom N terms by karma. N defaults to 5.
+HELP
       }
       route %r{^karma\s+best}, :list_best, command: true, help: {
-        "karma best [N]" => "Lists the top N terms by karma. N defaults to 5."
+        "karma best [N]" => <<-HELP.chomp
+Lists the top N terms by karma. N defaults to 5.
+HELP
       }
       route %r{^karma\s+modified}, :modified, command: true, help: {
-        "karma modified TERM" => "Lists the names of users who have upvoted or downvoted TERM."
+        "karma modified TERM" => <<-HELP.chomp
+Lists the names of users who have upvoted or downvoted TERM.
+HELP
       }
       route %r{^karma\s*$}, :list_best, command: true
-      route %r{^(#{TERM_REGEX.source})\s*\+=\s*(#{TERM_REGEX.source})}, :link, command: true, help: {
-        "TERM1 += TERM2" => "Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its own and TERM2's karma."
-      }
-      route %r{^(#{TERM_REGEX.source})\s*-=\s*(#{TERM_REGEX.source})}, :unlink, command: true, help: {
-        "TERM1 -= TERM2" => "Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum of its own and TERM2's karma."
-      }
+      route(
+        %r{^(#{TERM_REGEX.source})\s*\+=\s*(#{TERM_REGEX.source})},
+        :link,
+        command: true,
+        help: {
+          "TERM1 += TERM2" => <<-HELP.chomp
+Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its \
+own and TERM2's karma.
+HELP
+        }
+      )
+      route(
+        %r{^(#{TERM_REGEX.source})\s*-=\s*(#{TERM_REGEX.source})},
+        :unlink,
+        command: true,
+        help: {
+          "TERM1 -= TERM2" => <<-HELP.chomp
+Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum \
+of its own and TERM2's karma.
+HELP
+        }
+      )
 
       def self.default_config(config)
         config.cooldown = 300
