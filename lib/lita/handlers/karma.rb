@@ -3,9 +3,11 @@ require "lita"
 module Lita
   module Handlers
     class Karma < Handler
-      route %r{([^\s]{2,})\+\+}, :increment, help: { "TERM++" => "Increments TERM by one." }
-      route %r{([^\s]{2,})\-\-}, :decrement, help: { "TERM--" => "Decrements TERM by one." }
-      route %r{([^\s]{2,})~~}, :check, help: { "TERM~~" => "Shows the current karma of TERM." }
+      TERM_REGEX = /[\[\]\w\._\-|\{\}]{2,}/
+
+      route %r{(#{TERM_REGEX.source})\+\+}, :increment, help: { "TERM++" => "Increments TERM by one." }
+      route %r{(#{TERM_REGEX.source})\-\-}, :decrement, help: { "TERM--" => "Decrements TERM by one." }
+      route %r{(#{TERM_REGEX.source})~~}, :check, help: { "TERM~~" => "Shows the current karma of TERM." }
       route %r{^karma\s+worst}, :list_worst, command: true, help: {
         "karma worst [N]" => "Lists the bottom N terms by karma. N defaults to 5."
       }
@@ -16,10 +18,10 @@ module Lita
         "karma modified TERM" => "Lists the names of users who have upvoted or downvoted TERM."
       }
       route %r{^karma\s*$}, :list_best, command: true
-      route %r{^([^\s]{2,})\s*\+=\s*([^\s]{2,})}, :link, command: true, help: {
+      route %r{^(#{TERM_REGEX.source})\s*\+=\s*(#{TERM_REGEX.source})}, :link, command: true, help: {
         "TERM1 += TERM2" => "Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its own and TERM2's karma."
       }
-      route %r{^([^\s]{2,})\s*-=\s*([^\s]{2,})}, :unlink, command: true, help: {
+      route %r{^(#{TERM_REGEX.source})\s*-=\s*(#{TERM_REGEX.source})}, :unlink, command: true, help: {
         "TERM1 -= TERM2" => "Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum of its own and TERM2's karma."
       }
 
