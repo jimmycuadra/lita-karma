@@ -1,6 +1,6 @@
 # lita-karma
 
-[![Build Status](https://travis-ci.org/jimmycuadra/lita-karma.png)](https://travis-ci.org/jimmycuadra/lita-karma)
+[![Build Status](https://travis-ci.org/jimmycuadra/lita-karma.png?branch=master)](https://travis-ci.org/jimmycuadra/lita-karma)
 [![Code Climate](https://codeclimate.com/github/jimmycuadra/lita-karma.png)](https://codeclimate.com/github/jimmycuadra/lita-karma)
 [![Coverage Status](https://coveralls.io/repos/jimmycuadra/lita-karma/badge.png)](https://coveralls.io/r/jimmycuadra/lita-karma)
 
