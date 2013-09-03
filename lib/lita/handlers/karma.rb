@@ -3,7 +3,7 @@ require "lita"
 module Lita
   module Handlers
     class Karma < Handler
-      TERM_REGEX = /[<:][^>:]+[>:]|[\[\]\w\._\-|\{\}]{2,}/
+      TERM_REGEX = /[<:][^>:]+[>:]|[\[\]\w\._|\{\}]{2,}/
 
       route %r{(#{TERM_REGEX.source})\+\+}, :increment, help: {
         "TERM++" => "Increments TERM by one."

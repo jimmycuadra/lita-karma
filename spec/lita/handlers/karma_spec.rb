@@ -13,6 +13,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
   it { routes_command("foo += bar").to(:link) }
   it { routes_command("foo -= bar").to(:unlink) }
   it { doesnt_route("+++++").to(:increment) }
+  it { doesnt_route("-----").to(:decrement) }
 
   describe "#increment" do
     it "increases the term's score by one and says the new score" do
