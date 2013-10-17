@@ -29,6 +29,18 @@ HELP
 Lists the names of users who have upvoted or downvoted TERM.
 HELP
       }
+      route(
+        %r{^karma\s+delete},
+        :delete,
+        command: true,
+        restrict_to: :karma_admins,
+        help: {
+          "karma delete TERM" => <<-HELP.chomp
+Permanently removes TERM and all its links. TERM is matched exactly as typed \
+and does not adhere to the usual pattern for terms.
+HELP
+        }
+      )
       route %r{^karma\s*$}, :list_best, command: true
       route(
         %r{^(#{TERM_REGEX.source})\s*\+=\s*(#{TERM_REGEX.source})},
@@ -138,6 +150,24 @@ HELP
             User.find_by_id(id).name
           end.join(", ")
           response.reply output
+        end
+      end
+
+      def delete(response)
+        term = response.message.body.sub(/^karma delete /, "")
+
+        redis.del("links:#{term}")
+        # TODO: Find a longer term solution for this, as `keys` does not scale
+        # and this approach is not atomic.
+        redis.keys("links:*").each do |key|
+          redis.srem(key, term)
+        end
+
+        if redis.zrem("terms", term)
+          redis.del("modified:#{term}")
+          response.reply("#{term} has been deleted.")
+        else
+          response.reply("#{term} does not exist.")
         end
       end
 

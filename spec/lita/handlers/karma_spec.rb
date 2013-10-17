@@ -9,6 +9,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
   it { routes_command("karma best").to(:list_best) }
   it { routes_command("karma worst").to(:list_worst) }
   it { routes_command("karma modified").to(:modified) }
+  it { routes_command("karma delete").to(:delete) }
   it { routes_command("karma").to(:list_best) }
   it { routes_command("foo += bar").to(:link) }
   it { routes_command("foo -= bar").to(:unlink) }
@@ -193,6 +194,57 @@ MSG
       send_message("foo++")
       send_command("karma modified foo")
       expect(replies.last).to eq(user.name)
+    end
+  end
+
+  describe "#delete" do
+    before do
+      allow(Lita::Authorization).to receive(:user_in_group?).and_return(true)
+    end
+
+    it "deletes the term" do
+      send_message("foo++")
+      send_command("karma delete foo")
+      expect(replies.last).to eq("foo has been deleted.")
+      send_message("foo~~")
+      expect(replies.last).to eq("foo: 0")
+    end
+
+    it "replies with a warning if the term doesn't exist" do
+      send_command("karma delete foo")
+      expect(replies.last).to eq("foo does not exist.")
+    end
+
+    it "matches terms exactly, including leading whitespace" do
+      term = "  'foo bar* 'baz''/ :"
+      subject.redis.zincrby("terms", 1, term)
+      send_command("karma delete #{term}")
+      expect(replies.last).to include("has been deleted")
+    end
+
+    it "clears the modification list" do
+      send_message("foo++")
+      send_command("karma delete foo")
+      send_command("karma modified foo")
+      expect(replies.last).to eq("foo has never been modified.")
+    end
+
+    it "clears the deleted term's links" do
+      send_command("foo += bar")
+      send_command("foo += baz")
+      send_command("karma delete foo")
+      send_message("foo++")
+      expect(replies.last).to eq("foo: 1")
+    end
+
+    it "clears links from other terms connected to the deleted term" do
+      send_command("bar += foo")
+      send_command("baz += foo")
+      send_command("karma delete foo")
+      send_message("bar++")
+      expect(replies.last).to eq("bar: 1")
+      send_message("baz++")
+      expect(replies.last).to eq("baz: 1")
     end
   end
 end
