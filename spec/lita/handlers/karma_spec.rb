@@ -44,16 +44,6 @@ describe Lita::Handlers::Karma, lita_handler: true do
       send_message("FOO++")
       expect(replies.last).to eq("foo: 2")
     end
-
-    it "matches multi-word terms bounded by delimeters" do
-      send_message(":Some Thing:++")
-      expect(replies.last).to eq("some thing: 1")
-    end
-
-    it "matches terms with symbols that are bounded by delimeters" do
-      send_message("<C++>++")
-      expect(replies.last).to eq("c++: 1")
-    end
   end
 
   describe "#decrement" do
@@ -79,11 +69,6 @@ describe Lita::Handlers::Karma, lita_handler: true do
       send_message("foo--")
       expect(replies.last).to match(/cannot modify foo/)
     end
-
-    it "matches multi-word terms bounded by delimeters" do
-      send_message(":Some Thing:--")
-      expect(replies.last).to eq("some thing: -1")
-    end
   end
 
   describe "#check" do
@@ -95,11 +80,6 @@ describe Lita::Handlers::Karma, lita_handler: true do
     it "matches multiple terms in one message" do
       send_message("foo~~ bar~~")
       expect(replies).to eq(["foo: 0", "bar: 0"])
-    end
-
-    it "matches multi-word terms bounded by delimeters" do
-      send_message(":Some Thing:~~")
-      expect(replies.last).to eq("some thing: 0")
     end
   end
 

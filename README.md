@@ -32,14 +32,6 @@ Lita will add a karma point whenever it hears a term upvoted:
 term++
 ```
 
-You can also give karma to multi-worded terms or terms with symbols by bounding them with `<>` or `::`:
-
-```
-:Linus Torvalds:++
-
-<C++>++
-```
-
 It will subtract a karma point whenever it hears a term downvoted:
 
 ```
