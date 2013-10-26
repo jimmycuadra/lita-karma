@@ -174,29 +174,30 @@ HELP
 
       private
 
+      def cooling_down?(term, user_id, response)
+        ttl = redis.ttl("cooldown:#{user_id}:#{term}")
+
+        if ttl >= 0
+          cooldown_message =
+            "You cannot modify #{term} for another #{ttl} second"
+          cooldown_message << (ttl == 1 ? "." : "s.")
+          response.reply cooldown_message
+          return true
+        else
+          return false
+        end
+      end
+
       def modify(response, delta)
         response.matches.each do |match|
           term = normalize_term(match[0])
+          user_id = response.user.id
 
-          ttl = redis.ttl("cooldown:#{response.user.id}:#{term}")
-          if ttl >= 0
-            cooldown_message =
-              "You cannot modify #{term} for another #{ttl} second"
-            cooldown_message << (ttl == 1 ? "." : "s.")
-            response.reply cooldown_message
-            return
-          else
-            redis.zincrby("terms", delta, term)
-            redis.sadd("modified:#{term}", response.user.id)
-            cooldown = Lita.config.handlers.karma.cooldown
-            if cooldown
-              redis.setex(
-                "cooldown:#{response.user.id}:#{term}",
-                cooldown.to_i,
-                1
-              )
-            end
-          end
+          return if cooling_down?(term, user_id, response)
+
+          redis.zincrby("terms", delta, term)
+          redis.sadd("modified:#{term}", user_id)
+          set_cooldown(term, response.user.id)
         end
 
         check(response)
@@ -221,6 +222,18 @@ HELP
           response.reply "There are no terms being tracked yet."
         else
           response.reply output
+        end
+      end
+
+      def set_cooldown(term, user_id)
+        cooldown = Lita.config.handlers.karma.cooldown
+
+        if cooldown
+          redis.setex(
+            "cooldown:#{user_id}:#{term}",
+            cooldown.to_i,
+            1
+          )
         end
       end
     end
