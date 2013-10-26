@@ -114,6 +114,7 @@ HELP
           term1, term2 = normalize_term(match[0]), normalize_term(match[1])
 
           if redis.sadd("links:#{term1}", term2)
+            redis.sadd("linked_to:#{term2}", term1)
             response.reply "#{term2} has been linked to #{term1}."
           else
             response.reply "#{term2} is already linked to #{term1}."
@@ -126,6 +127,7 @@ HELP
           term1, term2 = normalize_term(match[0]), normalize_term(match[1])
 
           if redis.srem("links:#{term1}", term2)
+            redis.srem("linked_to:#{term2}", term1)
             response.reply "#{term2} has been unlinked from #{term1}."
           else
             response.reply "#{term2} is not linked to #{term1}."
@@ -156,15 +158,13 @@ HELP
       def delete(response)
         term = response.message.body.sub(/^karma delete /, "")
 
+        redis.del("modified:#{term}")
         redis.del("links:#{term}")
-        # TODO: Find a longer term solution for this, as `keys` does not scale
-        # and this approach is not atomic.
-        redis.keys("links:*").each do |key|
-          redis.srem(key, term)
+        redis.smembers("linked_to:#{term}").each do |key|
+          redis.srem("links:#{key}", term)
         end
 
         if redis.zrem("terms", term)
-          redis.del("modified:#{term}")
           response.reply("#{term} has been deleted.")
         else
           response.reply("#{term} does not exist.")
