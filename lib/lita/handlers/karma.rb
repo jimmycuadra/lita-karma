@@ -2,6 +2,7 @@ require "lita"
 
 module Lita
   module Handlers
+    # Tracks karma points for arbitrary terms.
     class Karma < Handler
       TERM_REGEX = /[\[\]\w\._|\{\}]{2,}/
 
