@@ -83,18 +83,11 @@ HELP
 
         response.matches.each do |match|
           term = normalize_term(match[0])
-          own_score = score = redis.zscore("terms", term).to_i
-          links = []
-          redis.smembers("links:#{term}").each do |link|
-            link_score = redis.zscore("terms", link).to_i
-            links << "#{link}: #{link_score}"
-            score += link_score
-          end
+          total_score, own_score, links = scores_for(term)
 
-          string = "#{term}: #{score}"
+          string = "#{term}: #{total_score}"
           unless links.empty?
-            string << " (#{own_score}), linked to: "
-            string << links.join(", ")
+            string << " (#{own_score}), linked to: #{links.join(", ")}"
           end
           output << string
         end
@@ -223,6 +216,19 @@ HELP
         else
           response.reply output
         end
+      end
+
+      def scores_for(term)
+        own_score = total_score = redis.zscore("terms", term).to_i
+        links = []
+
+        redis.smembers("links:#{term}").each do |link|
+          link_score = redis.zscore("terms", link).to_i
+          links << "#{link}: #{link_score}"
+          total_score += link_score
+        end
+
+        [total_score, own_score, links]
       end
 
       def set_cooldown(term, user_id)
