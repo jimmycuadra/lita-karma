@@ -16,11 +16,24 @@ gem "lita-karma"
 
 ## Configuration
 
-lita-karma has one option, the cooldown, which controls how long a user must wait after modifying a term before they can modify it again. The value should be an integer number of seconds. The default is 300 (5 minutes). Set it to `nil` to disable rate limiting.
+### Optional attributes
 
-```
+* `cooldown` (Integer, nil) - Controls how long a user must wait after modifying a term before they can modify it again. The value should be an integer number of seconds. Set it to `nil` to disable rate limiting. Default: `300` (5 minutes.
+* `term_pattern` (Regexp) - Determines what Lita will recognize as a valid term for tracking karma. Default: `//[\[\]\w\._|\{\}]{2,}/`.
+* `term_normalizer` (Proc) - A custom callable that determines how each term will be normalized before being stored in Redis. The proc should take one argument, the term as matched via regular expression, and return one value, the normalized version of the term.
+
+
+### Example
+
+This example configuration sets the cooldown to 10 minutes and changes the term pattern and normalization to allow multi-word terms bounded by `<>` or `:`, as previous versions of lita-karma did by default.
+
+``` ruby
 Lita.configure do |config|
   config.handlers.karma.cooldown = 600
+  config.handlers.karma.term_pattern = /[<:]([^>:]+)[>:]/
+  config.handlers.karma.term_normalizer = lambda do |term|
+    term.to_s.downcase.strip.sub(/[<:]([^>:]+)[>:]/, '\1')
+  end
 end
 ```
 
