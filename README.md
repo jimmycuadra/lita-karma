@@ -30,7 +30,7 @@ This example configuration sets the cooldown to 10 minutes and changes the term 
 ``` ruby
 Lita.configure do |config|
   config.handlers.karma.cooldown = 600
-  config.handlers.karma.term_pattern = /[<:]([^>:]+)[>:]/
+  config.handlers.karma.term_pattern = /[<:][^>:]+[>:]/
   config.handlers.karma.term_normalizer = lambda do |term|
     term.to_s.downcase.strip.sub(/[<:]([^>:]+)[>:]/, '\1')
   end
@@ -101,6 +101,14 @@ foo~~
 ```
 
 When a term is linked, the total karma score is displayed first, followed by the score of the term without its linked terms in parentheses.
+
+To permanently delete a term and all its links:
+
+```
+Lita: karma delete TERM
+```
+
+Note that when deleting a term, the term will be matched exactly as typed, including leading whitespace (the single space after the word "delete" is not counted) and other patterns which would not normally match as a valid term. This can be useful if you decide to change the term pattern or normalization and want to clean up previous data that is no longer valid. Deleting a term requires the user to be a member of the `:karma_admins` authorization group.
 
 ## License
 
