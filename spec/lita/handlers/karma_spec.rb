@@ -16,6 +16,24 @@ describe Lita::Handlers::Karma, lita_handler: true do
   it { doesnt_route("+++++").to(:increment) }
   it { doesnt_route("-----").to(:decrement) }
 
+  describe "#update_data" do
+    let(:payload) { double("payload") }
+    before { subject.redis.flushdb }
+
+    it "adds reverse link data for all linked terms" do
+      subject.redis.sadd("links:foo", ["bar", "baz"])
+      subject.upgrade_data(payload)
+      expect(subject.redis.sismember("linked_to:bar", "foo")).to be_true
+      expect(subject.redis.sismember("linked_to:baz", "foo")).to be_true
+    end
+
+    it "skips the update if it's already been done" do
+      expect(subject.redis).to receive(:keys).once.and_return([])
+      subject.upgrade_data(payload)
+      subject.upgrade_data(payload)
+    end
+  end
+
   describe "#increment" do
     it "increases the term's score by one and says the new score" do
       send_message("foo++")

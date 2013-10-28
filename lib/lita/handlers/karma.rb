@@ -6,6 +6,8 @@ module Lita
     class Karma < Handler
       TERM_REGEX = /[\[\]\w\._|\{\}]{2,}/
 
+      on :loaded, :upgrade_data
+
       route %r{(#{TERM_REGEX.source})\+\+}, :increment, help: {
         "TERM++" => "Increments TERM by one."
       }
@@ -68,6 +70,17 @@ HELP
 
       def self.default_config(config)
         config.cooldown = 300
+      end
+
+      def upgrade_data(payload)
+        return if redis.exists("support:reverse_links")
+        redis.keys("links:*").each do |key|
+          term = key.sub(/^links:/, "")
+          redis.smembers(key).each do |link|
+            redis.sadd("linked_to:#{link}", term)
+          end
+        end
+        redis.incr("support:reverse_links")
       end
 
       def increment(response)
