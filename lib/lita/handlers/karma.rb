@@ -4,69 +4,14 @@ module Lita
   module Handlers
     # Tracks karma points for arbitrary terms.
     class Karma < Handler
-      TERM_REGEX = /[\[\]\w\._|\{\}]{2,}/
+      TERM_PATTERN = /[\[\]\w\._|\{\}]{2,}/
+
+      class << self
+        attr_accessor :term_pattern
+      end
 
       on :loaded, :upgrade_data
-
-      route %r{(#{TERM_REGEX.source})\+\+}, :increment, help: {
-        "TERM++" => "Increments TERM by one."
-      }
-      route %r{(#{TERM_REGEX.source})\-\-}, :decrement, help: {
-        "TERM--" => "Decrements TERM by one."
-      }
-      route %r{(#{TERM_REGEX.source})~~}, :check, help: {
-        "TERM~~" => "Shows the current karma of TERM."
-      }
-      route %r{^karma\s+worst}, :list_worst, command: true, help: {
-        "karma worst [N]" => <<-HELP.chomp
-Lists the bottom N terms by karma. N defaults to 5.
-HELP
-      }
-      route %r{^karma\s+best}, :list_best, command: true, help: {
-        "karma best [N]" => <<-HELP.chomp
-Lists the top N terms by karma. N defaults to 5.
-HELP
-      }
-      route %r{^karma\s+modified}, :modified, command: true, help: {
-        "karma modified TERM" => <<-HELP.chomp
-Lists the names of users who have upvoted or downvoted TERM.
-HELP
-      }
-      route(
-        %r{^karma\s+delete},
-        :delete,
-        command: true,
-        restrict_to: :karma_admins,
-        help: {
-          "karma delete TERM" => <<-HELP.chomp
-Permanently removes TERM and all its links. TERM is matched exactly as typed \
-and does not adhere to the usual pattern for terms.
-HELP
-        }
-      )
-      route %r{^karma\s*$}, :list_best, command: true
-      route(
-        %r{^(#{TERM_REGEX.source})\s*\+=\s*(#{TERM_REGEX.source})},
-        :link,
-        command: true,
-        help: {
-          "TERM1 += TERM2" => <<-HELP.chomp
-Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its \
-own and TERM2's karma.
-HELP
-        }
-      )
-      route(
-        %r{^(#{TERM_REGEX.source})\s*-=\s*(#{TERM_REGEX.source})},
-        :unlink,
-        command: true,
-        help: {
-          "TERM1 -= TERM2" => <<-HELP.chomp
-Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum \
-of its own and TERM2's karma.
-HELP
-        }
-      )
+      on :loaded, :define_routes
 
       def self.default_config(config)
         config.cooldown = 300
@@ -81,6 +26,11 @@ HELP
           end
         end
         redis.incr("support:reverse_links")
+      end
+
+      def define_routes(payload)
+        define_static_routes
+        define_dynamic_routes
       end
 
       def increment(response)
@@ -194,6 +144,103 @@ HELP
         end
       end
 
+      def define_dynamic_routes
+        self.class.term_pattern =
+          Lita.config.handlers.karma.term_pattern || TERM_PATTERN
+
+        self.class.route(
+          %r{(#{term_pattern.source})\+\+},
+          :increment,
+          help: { "TERM++" => "Increments TERM by one." }
+        )
+
+        self.class.route(
+          %r{(#{term_pattern.source})\-\-},
+          :decrement,
+          help: { "TERM--" => "Decrements TERM by one." }
+        )
+
+        self.class.route(
+          %r{(#{term_pattern.source})~~},
+          :check,
+          help: { "TERM~~" => "Shows the current karma of TERM." }
+        )
+
+        self.class.route(
+          %r{^(#{term_pattern.source})\s*\+=\s*(#{term_pattern.source})},
+          :link,
+          command: true,
+          help: {
+            "TERM1 += TERM2" => <<-HELP.chomp
+Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its \
+own and TERM2's karma.
+HELP
+          }
+        )
+
+        self.class.route(
+          %r{^(#{term_pattern.source})\s*-=\s*(#{term_pattern.source})},
+          :unlink,
+          command: true,
+          help: {
+            "TERM1 -= TERM2" => <<-HELP.chomp
+Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum \
+of its own and TERM2's karma.
+HELP
+          }
+        )
+      end
+
+      def define_static_routes
+        self.class.route(
+          %r{^karma\s+worst},
+          :list_worst,
+          command: true,
+          help: {
+            "karma worst [N]" => <<-HELP.chomp
+Lists the bottom N terms by karma. N defaults to 5.
+HELP
+          }
+        )
+
+        self.class.route(
+          %r{^karma\s+best},
+          :list_best,
+          command: true,
+          help: {
+            "karma best [N]" => <<-HELP.chomp
+Lists the top N terms by karma. N defaults to 5.
+HELP
+          }
+        )
+
+        self.class.route(
+          %r{^karma\s+modified},
+          :modified,
+          command: true,
+          help: {
+            "karma modified TERM" => <<-HELP.chomp
+Lists the names of users who have upvoted or downvoted TERM.
+HELP
+          }
+        )
+
+        self.class.route(
+          %r{^karma\s+delete},
+          :delete,
+          command: true,
+          restrict_to: :karma_admins,
+          help: {
+            "karma delete TERM" => <<-HELP.chomp
+Permanently removes TERM and all its links. TERM is matched exactly as typed \
+and does not adhere to the usual pattern for terms.
+HELP
+          }
+        )
+
+        self.class.route(%r{^karma\s*$}, :list_best, command: true)
+      end
+
       def modify(response, delta)
         response.matches.each do |match|
           term = normalize_term(match[0])
@@ -210,7 +257,13 @@ HELP
       end
 
       def normalize_term(term)
-        term.to_s.downcase.strip
+        term_normalizer = Lita.config.handlers.karma.term_normalizer
+
+        if term_normalizer.respond_to?(:call)
+          term_normalizer.call(term)
+        else
+          term.to_s.downcase.strip
+        end
       end
 
       def list(response, redis_command)
@@ -254,6 +307,10 @@ HELP
             1
           )
         end
+      end
+
+      def term_pattern
+        self.class.term_pattern
       end
     end
 

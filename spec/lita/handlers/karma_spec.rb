@@ -1,7 +1,13 @@
 require "spec_helper"
 
 describe Lita::Handlers::Karma, lita_handler: true do
-  before { Lita.config.handlers.karma.cooldown = nil }
+  let(:payload) { double("payload") }
+
+  before do
+    Lita.config.handlers.karma.cooldown = nil
+    described_class.routes.clear
+    subject.define_routes(payload)
+  end
 
   it { routes("foo++").to(:increment) }
   it { routes("foo--").to(:decrement) }
@@ -17,7 +23,6 @@ describe Lita::Handlers::Karma, lita_handler: true do
   it { doesnt_route("-----").to(:decrement) }
 
   describe "#update_data" do
-    let(:payload) { double("payload") }
     before { subject.redis.flushdb }
 
     it "adds reverse link data for all linked terms" do
@@ -263,6 +268,37 @@ MSG
       expect(replies.last).to eq("bar: 1")
       send_message("baz++")
       expect(replies.last).to eq("baz: 1")
+    end
+  end
+
+  describe "custom term patterns and normalization" do
+    before do
+      Lita.config.handlers.karma.term_pattern = /[<:]([^>:]+)[>:]/
+      Lita.config.handlers.karma.term_normalizer = lambda do |term|
+        term.to_s.downcase.strip.sub(/[<:]([^>:]+)[>:]/, '\1')
+      end
+      described_class.routes.clear
+      subject.define_routes(payload)
+    end
+
+    it "increments multi-word terms bounded by delimeters" do
+      send_message(":Some Thing:++")
+      expect(replies.last).to eq("some thing: 1")
+    end
+
+    it "increments terms with symbols that are bounded by delimeters" do
+      send_message("<C++>++")
+      expect(replies.last).to eq("c++: 1")
+    end
+
+    it "decrements multi-word terms bounded by delimeters" do
+      send_message(":Some Thing:--")
+      expect(replies.last).to eq("some thing: -1")
+    end
+
+    it "checks multi-word terms bounded by delimeters" do
+      send_message(":Some Thing:~~")
+      expect(replies.last).to eq("some thing: 0")
     end
   end
 end
