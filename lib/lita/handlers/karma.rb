@@ -29,8 +29,11 @@ module Lita
       end
 
       def define_routes(payload)
+        self.class.term_pattern =
+          Lita.config.handlers.karma.term_pattern || TERM_PATTERN
+
         define_static_routes
-        define_dynamic_routes
+        define_dynamic_routes(term_pattern.source)
       end
 
       def increment(response)
@@ -144,30 +147,27 @@ module Lita
         end
       end
 
-      def define_dynamic_routes
-        self.class.term_pattern =
-          Lita.config.handlers.karma.term_pattern || TERM_PATTERN
-
+      def define_dynamic_routes(pattern)
         self.class.route(
-          %r{(#{term_pattern.source})\+\+},
+          %r{(#{pattern})\+\+},
           :increment,
           help: { "TERM++" => "Increments TERM by one." }
         )
 
         self.class.route(
-          %r{(#{term_pattern.source})\-\-},
+          %r{(#{pattern})\-\-},
           :decrement,
           help: { "TERM--" => "Decrements TERM by one." }
         )
 
         self.class.route(
-          %r{(#{term_pattern.source})~~},
+          %r{(#{pattern})~~},
           :check,
           help: { "TERM~~" => "Shows the current karma of TERM." }
         )
 
         self.class.route(
-          %r{^(#{term_pattern.source})\s*\+=\s*(#{term_pattern.source})},
+          %r{^(#{pattern})\s*\+=\s*(#{pattern})},
           :link,
           command: true,
           help: {
@@ -179,7 +179,7 @@ HELP
         )
 
         self.class.route(
-          %r{^(#{term_pattern.source})\s*-=\s*(#{term_pattern.source})},
+          %r{^(#{pattern})\s*-=\s*(#{pattern})},
           :unlink,
           command: true,
           help: {
