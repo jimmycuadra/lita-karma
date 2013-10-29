@@ -123,6 +123,7 @@ module Lita
         redis.smembers("linked_to:#{term}").each do |key|
           redis.srem("links:#{key}", term)
         end
+        redis.del("linked_to:#{term}")
 
         if redis.zrem("terms", term)
           response.reply("#{term} has been deleted.")
