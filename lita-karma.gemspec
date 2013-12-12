@@ -7,6 +7,7 @@ Gem::Specification.new do |spec|
   spec.summary       = %q{A Lita handler for tracking karma points for arbitrary terms.}
   spec.homepage      = "https://github.com/jimmycuadra/lita-karma"
   spec.license       = "MIT"
+  spec.metadata      = { "lita_plugin_type" => "handler" }
 
   spec.files         = `git ls-files`.split($/)
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
