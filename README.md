@@ -75,7 +75,7 @@ To list the worst scoring terms:
 Lita: karma worst
 ```
 
-These commands will list 5 terms by default. To specify a number, pass a second argument to the karma command:
+These commands will list 5 terms by default. To specify a number (no greater than 25), pass a second argument to the karma command:
 
 ```
 Lita: karma best 10

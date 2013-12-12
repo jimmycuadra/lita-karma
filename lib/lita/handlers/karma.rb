@@ -269,6 +269,7 @@ HELP
 
       def list(response, redis_command)
         n = (response.args[1] || 5).to_i - 1
+        n = 25 if n > 25
 
         terms_scores = redis.public_send(
           redis_command, "terms", 0, n, with_scores: true
