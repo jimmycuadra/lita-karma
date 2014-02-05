@@ -4,7 +4,7 @@ module Lita
   module Handlers
     # Tracks karma points for arbitrary terms.
     class Karma < Handler
-      TERM_PATTERN = /[\[\]\w\._|\{\}]{2,}/
+      TERM_PATTERN = /[\[\]\p{Word}\._|\{\}]{2,}/
 
       class << self
         attr_accessor :term_pattern
