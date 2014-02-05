@@ -1,3 +1,4 @@
+# Encoding: UTF-8
 require "spec_helper"
 
 describe Lita::Handlers::Karma, lita_handler: true do
@@ -67,6 +68,11 @@ describe Lita::Handlers::Karma, lita_handler: true do
       send_message("foo++")
       send_message("FOO++")
       expect(replies.last).to eq("foo: 2")
+    end
+
+    it "handles Unicode word characters" do
+      send_message("föö++")
+      expect(replies.last).to eq("föö: 1")
     end
   end
 
