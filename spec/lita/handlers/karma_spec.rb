@@ -28,8 +28,8 @@ describe Lita::Handlers::Karma, lita_handler: true do
     it "adds reverse link data for all linked terms" do
       subject.redis.sadd("links:foo", ["bar", "baz"])
       subject.upgrade_data(payload)
-      expect(subject.redis.sismember("linked_to:bar", "foo")).to be_true
-      expect(subject.redis.sismember("linked_to:baz", "foo")).to be_true
+      expect(subject.redis.sismember("linked_to:bar", "foo")).to be(true)
+      expect(subject.redis.sismember("linked_to:baz", "foo")).to be(true)
     end
 
     it "skips the update if it's already been done" do
