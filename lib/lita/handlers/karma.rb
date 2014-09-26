@@ -73,6 +73,13 @@ module Lita
         response.matches.each do |match|
           term1, term2 = normalize_term(match[0]), normalize_term(match[1])
 
+          total_score, own_score, links = scores_for(term2)
+
+          if own_score < 10
+            response.reply "go fuck urself"
+            return
+          end
+
           if redis.sadd("links:#{term1}", term2)
             redis.sadd("linked_to:#{term2}", term1)
             response.reply "#{term2} has been linked to #{term1}."
