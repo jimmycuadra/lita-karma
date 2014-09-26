@@ -4,23 +4,25 @@ describe Lita::Handlers::Karma, lita_handler: true do
   let(:payload) { double("payload") }
 
   before do
-    Lita.config.handlers.karma.cooldown = nil
+    registry.config.handlers.karma.cooldown = nil
     described_class.routes.clear
     subject.define_routes(payload)
   end
 
-  it { routes("foo++").to(:increment) }
-  it { routes("foo--").to(:decrement) }
-  it { routes("foo~~").to(:check) }
-  it { routes_command("karma best").to(:list_best) }
-  it { routes_command("karma worst").to(:list_worst) }
-  it { routes_command("karma modified").to(:modified) }
-  it { routes_command("karma delete").to(:delete) }
-  it { routes_command("karma").to(:list_best) }
-  it { routes_command("foo += bar").to(:link) }
-  it { routes_command("foo -= bar").to(:unlink) }
-  it { doesnt_route("+++++").to(:increment) }
-  it { doesnt_route("-----").to(:decrement) }
+  it { is_expected.to route("foo++").to(:increment) }
+  it { is_expected.to route("foo--").to(:decrement) }
+  it { is_expected.to route("foo~~").to(:check) }
+  it { is_expected.to route_command("karma best").to(:list_best) }
+  it { is_expected.to route_command("karma worst").to(:list_worst) }
+  it { is_expected.to route_command("karma modified").to(:modified) }
+  it do
+    is_expected.to route_command("karma delete").with_authorization_for(:karma_admins).to(:delete)
+  end
+  it { is_expected.to route_command("karma").to(:list_best) }
+  it { is_expected.to route_command("foo += bar").to(:link) }
+  it { is_expected.to route_command("foo -= bar").to(:unlink) }
+  it { is_expected.not_to route("+++++").to(:increment) }
+  it { is_expected.not_to route("-----").to(:decrement) }
 
   describe "#update_data" do
     before { subject.redis.flushdb }
@@ -57,7 +59,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
     end
 
     it "replies with a warning if term increment is on cooldown" do
-      Lita.config.handlers.karma.cooldown = 10
+      registry.config.handlers.karma.cooldown = 10
       send_message("foo++")
       send_message("foo++")
       expect(replies.last).to match(/cannot modify foo/)
@@ -93,7 +95,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
     end
 
     it "replies with a warning if term increment is on cooldown" do
-      Lita.config.handlers.karma.cooldown = 10
+      registry.config.handlers.karma.cooldown = 10
       send_message("foo--")
       send_message("foo--")
       expect(replies.last).to match(/cannot modify foo/)
@@ -227,7 +229,7 @@ MSG
 
   describe "#delete" do
     before do
-      allow(Lita::Authorization).to receive(:user_in_group?).and_return(true)
+      robot.auth.add_user_to_group!(user, :karma_admins)
     end
 
     it "deletes the term" do
@@ -278,8 +280,8 @@ MSG
 
   describe "custom term patterns and normalization" do
     before do
-      Lita.config.handlers.karma.term_pattern = /[<:]([^>:]+)[>:]/
-      Lita.config.handlers.karma.term_normalizer = lambda do |term|
+      registry.config.handlers.karma.term_pattern = /[<:]([^>:]+)[>:]/
+      registry.config.handlers.karma.term_normalizer = lambda do |term|
         term.to_s.downcase.strip.sub(/[<:]([^>:]+)[>:]/, '\1')
       end
       described_class.routes.clear

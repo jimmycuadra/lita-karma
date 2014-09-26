@@ -4,18 +4,16 @@ module Lita
   module Handlers
     # Tracks karma points for arbitrary terms.
     class Karma < Handler
-      TERM_PATTERN = /[\[\]\p{Word}\._|\{\}]{2,}/
-
-      class << self
-        attr_accessor :term_pattern
+      config :cooldown, types: [Integer, nil], default: 300
+      config :term_pattern, type: Regexp, default: /[\[\]\p{Word}\._|\{\}]{2,}/
+      config :term_normalizer do
+        validate do |value|
+          "must be a callable object" unless value.respond_to?(:call)
+        end
       end
 
       on :loaded, :upgrade_data
       on :loaded, :define_routes
-
-      def self.default_config(config)
-        config.cooldown = 300
-      end
 
       def upgrade_data(payload)
         return if redis.exists("support:reverse_links")
@@ -29,11 +27,8 @@ module Lita
       end
 
       def define_routes(payload)
-        self.class.term_pattern =
-          Lita.config.handlers.karma.term_pattern || TERM_PATTERN
-
         define_static_routes
-        define_dynamic_routes(term_pattern.source)
+        define_dynamic_routes(config.term_pattern.source)
       end
 
       def increment(response)
@@ -258,10 +253,8 @@ HELP
       end
 
       def normalize_term(term)
-        term_normalizer = Lita.config.handlers.karma.term_normalizer
-
-        if term_normalizer.respond_to?(:call)
-          term_normalizer.call(term)
+        if config.term_normalizer
+          config.term_normalizer.call(term)
         else
           term.to_s.downcase.strip
         end
@@ -309,10 +302,6 @@ HELP
             1
           )
         end
-      end
-
-      def term_pattern
-        self.class.term_pattern
       end
     end
 
