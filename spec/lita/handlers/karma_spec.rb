@@ -60,7 +60,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
 
       it 'uses the upgrade Proc, if configured' do
         Lita.config.handlers.karma.upgrade_modified = Proc.new do |score, uids|
-          uids.each_with_index.map {|u, i| [i * score, u]}
+          uids.sort.each_with_index.map {|u, i| [i * score, u]}
         end
 
         subject.upgrade_data(payload)
