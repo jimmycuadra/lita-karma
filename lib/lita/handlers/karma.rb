@@ -18,14 +18,38 @@ module Lita
       end
 
       def upgrade_data(payload)
-        return if redis.exists("support:reverse_links")
-        redis.keys("links:*").each do |key|
-          term = key.sub(/^links:/, "")
-          redis.smembers(key).each do |link|
-            redis.sadd("linked_to:#{link}", term)
+        unless redis.exists("support:reverse_links")
+          redis.keys("links:*").each do |key|
+            term = key.sub(/^links:/, "")
+            redis.smembers(key).each do |link|
+              redis.sadd("linked_to:#{link}", term)
+            end
           end
+          redis.incr("support:reverse_links")
         end
-        redis.incr("support:reverse_links")
+
+        unless redis.exists('support:modified_counts')
+          terms = redis.zrange('terms', 0, -1, with_scores: true)
+
+          upgrade = Lita.config.handlers.karma.upgrade_modified ||
+            Proc.new {|score, user_ids| user_ids.map {|t| [1, t] } }
+
+          terms.each do |(term, score)|
+            mod_key = "modified:#{term}"
+            next unless redis.type(mod_key) == 'set'
+            tmp_key = "modified_flat:#{term}"
+
+            user_ids = redis.smembers(mod_key)
+            score = score.to_i
+            result = upgrade.call(score, user_ids)
+            redis.rename(mod_key, tmp_key)
+            redis.zadd(mod_key, result)
+            redis.del(tmp_key)
+            Lita.logger.debug("Karma: Upgraded modified set for '#{term}'")
+          end
+
+          redis.incr("support:modified_counts")
+        end
       end
 
       def define_routes(payload)
@@ -103,13 +127,13 @@ module Lita
           return
         end
 
-        user_ids = redis.smembers("modified:#{term}")
+        user_ids = redis.zrevrange("modified:#{term}", 0, -1, with_scores: true)
 
         if user_ids.empty?
           response.reply "#{term} has never been modified."
         else
-          output = user_ids.map do |id|
-            User.find_by_id(id).name
+          output = user_ids.map do |(id, score)|
+            "#{User.find_by_id(id).name} (#{score.to_i})"
           end.join(", ")
           response.reply output
         end
@@ -250,7 +274,7 @@ HELP
           return if cooling_down?(term, user_id, response)
 
           redis.zincrby("terms", delta, term)
-          redis.sadd("modified:#{term}", user_id)
+          redis.zincrby("modified:#{term}", 1, user_id)
           set_cooldown(term, response.user.id)
         end
 

@@ -25,17 +25,47 @@ describe Lita::Handlers::Karma, lita_handler: true do
   describe "#update_data" do
     before { subject.redis.flushdb }
 
-    it "adds reverse link data for all linked terms" do
-      subject.redis.sadd("links:foo", ["bar", "baz"])
-      subject.upgrade_data(payload)
-      expect(subject.redis.sismember("linked_to:bar", "foo")).to be_true
-      expect(subject.redis.sismember("linked_to:baz", "foo")).to be_true
+    describe 'reverse links' do
+      it "adds reverse link data for all linked terms" do
+        subject.redis.sadd("links:foo", ["bar", "baz"])
+        subject.upgrade_data(payload)
+        expect(subject.redis.sismember("linked_to:bar", "foo")).to be_true
+        expect(subject.redis.sismember("linked_to:baz", "foo")).to be_true
+      end
+
+      it "skips the update if it's already been done" do
+        expect(subject.redis).to receive(:keys).once.and_return([])
+        subject.upgrade_data(payload)
+        subject.upgrade_data(payload)
+      end
     end
 
-    it "skips the update if it's already been done" do
-      expect(subject.redis).to receive(:keys).once.and_return([])
-      subject.upgrade_data(payload)
-      subject.upgrade_data(payload)
+    describe 'modified counts' do
+      before do
+        subject.redis.zadd('terms', 2, 'foo')
+        subject.redis.sadd('modified:foo', %w{bar baz})
+      end
+
+      it 'gives every modifier a single point' do
+        subject.upgrade_data(payload)
+        expect(subject.redis.type('modified:foo')).to eq 'zset'
+        expect(subject.redis.zrange('modified:foo', 0, -1, with_scores: true)).to eq [['bar', 1.0], ['baz', 1.0]]
+      end
+
+      it "skips the update if it's already been done" do
+        expect(subject.redis).to receive(:zrange).once.and_return([])
+        subject.upgrade_data(payload)
+        subject.upgrade_data(payload)
+      end
+
+      it 'uses the upgrade Proc, if configured' do
+        Lita.config.handlers.karma.upgrade_modified = Proc.new do |score, uids|
+          uids.each_with_index.map {|u, i| [i * score, u]}
+        end
+
+        subject.upgrade_data(payload)
+        expect(subject.redis.zrange('modified:foo', 0, -1, with_scores: true)).to eq [['bar', 0.0], ['baz', 2.0]]
+      end
     end
   end
 
@@ -217,11 +247,13 @@ MSG
       expect(replies.last).to match(/never been modified/)
     end
 
-    it "lists users who have modified the given term" do
-      allow(Lita::User).to receive(:find_by_id).and_return(user)
-      send_message("foo++")
+    it "lists users who have modified the given term in count order" do
+      other_user = Lita::User.create("2", name: "Other User")
+      send_message("foo++", as: user)
+      send_message("foo++", as: user)
+      send_message("foo++", as: other_user)
       send_command("karma modified foo")
-      expect(replies.last).to eq(user.name)
+      expect(replies.last).to eq("#{user.name} (2), #{other_user.name} (1)")
     end
   end
 
