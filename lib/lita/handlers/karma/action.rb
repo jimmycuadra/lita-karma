@@ -7,11 +7,11 @@ class Lita::Handlers::Karma::Action
   end
 
   def serialize
-    [term, user_id, delta, at.to_f].to_json
+    MultiJson.dump [term, user_id, delta, at.to_f]
   end
 
   def self.deserialize(str)
-    tuple = JSON.parse(str)
+    tuple = MultiJson.load(str)
     tuple[3] = Time.at(tuple[3])
     self.new(*tuple)
   end

@@ -391,6 +391,9 @@ HELP
               action_time = Time.now - distributor.call(i, remainder)
               add_action(term, nil, 1, action_time)
             end
+            known = current[term].values.inject(0, &:+)
+
+            Lita.logger.debug("Karma: decay update for '#{term}': known: #{known}, new: #{total - known}")
           end
           redis.incr('support:decay_up_to_date')
         end
