@@ -4,6 +4,7 @@ module Lita
   module Handlers
     # Tracks karma points for arbitrary terms.
     class Karma < Handler
+      require 'lita/handlers/karma/action'
       TERM_PATTERN = /[\[\]\p{Word}\._|\{\}]{2,}/
 
       class << self
@@ -49,6 +50,42 @@ module Lita
           end
 
           redis.incr("support:modified_counts")
+        end
+
+        if decay_enabled? && ! redis.exists('support:decay_up_to_date')
+          current = Hash.new { |h, k| h[k] = Hash.new {|h,k| h[k] = 0} }
+          redis.zrange(:actions, 0, -1).each_with_object(current) do |json, hash|
+            action = Action.deserialize(json)
+            hash[action.term][action.user_id] += 1
+          end
+
+          terms = redis.zrange('terms', 0, -1, with_scores: true)
+          distributor = Lita.config.handlers.karma.decay_distributor || Proc.new do |index, item_count|
+            interval = Lita.config.handlers.karma.decay_interval.to_i
+            # I wanted an asymptotic function with a reasonably soft
+            # acceleration curve. I’m not wedded to this one, but it seems to work.
+            x = 4 * interval / (item_count + 1) * (index + 1)
+            interval - (interval * x.to_f / Math.sqrt(x ** 2 + interval ** 2))
+          end
+
+          terms.each do |(term, term_score)|
+            mod_key = "modified:#{term}"
+            total = 0
+            redis.zrange(mod_key, 0, -1, with_scores: true).each do |(mod, mod_score)|
+              mod_score = mod_score.to_i
+              total += mod_score
+
+              (mod_score - current[term][mod]).times do |i|
+                add_action(term, mod, Time.now - distributor.call(i, mod_score))
+              end
+            end
+
+            remainder = term_score.to_i - total - current[term][nil]
+            remainder.times do |i|
+              add_action(term, nil, Time.now - distributor.call(i, remainder))
+            end
+          end
+          redis.incr('support:decay_up_to_date')
         end
       end
 
@@ -337,6 +374,15 @@ HELP
 
       def term_pattern
         self.class.term_pattern
+      end
+
+      def decay_enabled?
+        Lita.config.handlers.karma.decay && Lita.config.handlers.karma.decay_interval.to_i > 0
+      end
+
+      def add_action(term, user_id, at = Time.now)
+        action = Action.new(term, user_id, at)
+        redis.zadd(:actions, at.to_f, action.serialize)
       end
     end
 
