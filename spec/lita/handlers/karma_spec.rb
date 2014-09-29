@@ -159,6 +159,11 @@ describe Lita::Handlers::Karma, lita_handler: true do
       send_message("föö++")
       expect(replies.last).to eq("föö: 1")
     end
+
+    it "processes decay" do
+      expect(subject).to receive(:process_decay).at_least(:once)
+      send_message("foo++")
+    end
   end
 
   describe "#decrement" do
@@ -184,6 +189,11 @@ describe Lita::Handlers::Karma, lita_handler: true do
       send_message("foo--")
       expect(replies.last).to match(/cannot modify foo/)
     end
+
+    it "processes decay" do
+      expect(subject).to receive(:process_decay).at_least(:once)
+      send_message("foo--")
+    end
   end
 
   describe "#check" do
@@ -195,6 +205,11 @@ describe Lita::Handlers::Karma, lita_handler: true do
     it "matches multiple terms in one message" do
       send_message("foo~~ bar~~")
       expect(replies).to eq(["foo: 0", "bar: 0"])
+    end
+
+    it "processes decay" do
+      expect(subject).to receive(:process_decay).at_least(:once)
+      send_message("foo~~")
     end
   end
 
@@ -239,6 +254,11 @@ MSG
 1. one (3)
 2. two (2)
 MSG
+      end
+
+      it "processes decay" do
+        expect(subject).to receive(:process_decay).at_least(:once)
+        send_command("karma best 2")
       end
     end
   end
@@ -311,6 +331,11 @@ MSG
       send_command("karma modified foo")
       expect(replies.last).to eq("#{user.name} (2), #{other_user.name} (1)")
     end
+
+    it "processes decay" do
+      expect(subject).to receive(:process_decay).at_least(:once)
+      send_command("karma modified foo")
+    end
   end
 
   describe "#delete" do
@@ -361,6 +386,44 @@ MSG
       expect(replies.last).to eq("bar: 1")
       send_message("baz++")
       expect(replies.last).to eq("baz: 1")
+    end
+  end
+
+  describe '#process_decay' do
+    let(:mods) { {bar: 2, baz: 3, nil => 4} }
+    let(:offsets) { {} }
+    let(:term) { :foo }
+    before do
+      Lita.config.handlers.karma.decay = true
+      Lita.config.handlers.karma.decay_interval = 24 * 60 * 60
+
+      subject.redis.zadd('terms', 8, term)
+      subject.redis.zadd("modified:#{term}", mods.invert.to_a)
+      mods.each do |mod, score|
+        offset = offsets[mod].to_i
+        score.times do |i|
+          subject.send(:add_action, term, mod, 1, Time.now - (i+offset) * 24 * 60 * 60)
+        end
+      end
+    end
+
+    it 'should decrement scores' do
+      subject.send(:process_decay)
+      expect(subject.redis.zscore(:terms, term).to_i).to be(2)
+    end
+
+    it 'should remove decayed actions' do
+      subject.send(:process_decay)
+      expect(subject.redis.zcard(:actions).to_i).to be(3)
+    end
+
+    context 'with decayed modifiers' do
+      let(:offsets) { {baz: 1} }
+
+      it 'should remove them' do
+        subject.send(:process_decay)
+        expect(subject.redis.zcard("modified:#{term}")).to be(2)
+      end
     end
   end
 
