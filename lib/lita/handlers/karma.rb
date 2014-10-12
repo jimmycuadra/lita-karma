@@ -74,8 +74,9 @@ module Lita
           term1, term2 = normalize_term(match[0]), normalize_term(match[1])
 
           total_score, own_score, links = scores_for(term2)
+          total_score, own_score_2, links = scores_for(term1)
 
-          if own_score < 10 && own_score > -10
+          if own_score.abs < 10 || own_score_2.abs < 10
             response.reply "go fuck urself"
             return
           end
