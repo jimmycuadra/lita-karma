@@ -5,6 +5,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
 
   before do
     registry.config.handlers.karma.cooldown = nil
+    registry.config.handlers.karma.link_karma_threshold = nil
     described_class.routes.clear
     subject.define_routes(payload)
   end
@@ -179,6 +180,45 @@ MSG
       expect(replies.last).to match(
         /foo: 3 \(1\), linked to: ba[rz]: 1, ba[rz]: 1/
       )
+    end
+
+    context "when link_karma_threshold is set" do
+      before do
+        registry.config.handlers.karma.link_karma_threshold = 1
+      end
+
+      it "doesn't allow a term to be linked if both are below the threshold" do
+        send_command("foo += bar")
+        expect(replies.last).to include("must have less than")
+      end
+
+      it "doesn't allow a term to be linked if it's below the threshold" do
+        send_command("foo++")
+        send_command("foo += bar")
+        expect(replies.last).to include("must have less than")
+      end
+
+      it "doesn't allow a term to be linked to another term below the threshold" do
+        send_command("bar++")
+        send_command("foo += bar")
+        expect(replies.last).to include("must have less than")
+      end
+
+      it "allows links if both terms meet the threshold" do
+        send_command("foo++ bar++")
+        send_command("foo += bar")
+        expect(replies.last).to include("has been linked")
+        send_command("bar += foo")
+        expect(replies.last).to include("has been linked")
+      end
+
+      it "uses the absolute value for terms with negative karma" do
+        send_command("foo-- bar--")
+        send_command("foo += bar")
+        expect(replies.last).to include("has been linked")
+        send_command("bar += foo")
+        expect(replies.last).to include("has been linked")
+      end
     end
   end
 

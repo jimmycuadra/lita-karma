@@ -5,6 +5,7 @@ module Lita
     # Tracks karma points for arbitrary terms.
     class Karma < Handler
       config :cooldown, types: [Integer, nil], default: 300
+      config :link_karma_threshold, types: [Integer, nil], default: 10
       config :term_pattern, type: Regexp, default: /[\[\]\p{Word}\._|\{\}]{2,}/
       config :term_normalizer do
         validate do |value|
@@ -67,6 +68,18 @@ module Lita
       def link(response)
         response.matches.each do |match|
           term1, term2 = normalize_term(match[0]), normalize_term(match[1])
+
+          if config.link_karma_threshold
+            threshold = config.link_karma_threshold.abs
+
+            _total_score, term2_score, _links = scores_for(term2)
+            _total_score, term1_score, _links = scores_for(term1)
+
+            if term1_score.abs < threshold || term2_score.abs < threshold
+              response.reply "Terms must have less than -#{threshold} or more than #{threshold} karma to be linked or linked to."
+              return
+            end
+          end
 
           if redis.sadd("links:#{term1}", term2)
             redis.sadd("linked_to:#{term2}", term1)
@@ -293,15 +306,7 @@ HELP
       end
 
       def set_cooldown(term, user_id)
-        cooldown = Lita.config.handlers.karma.cooldown
-
-        if cooldown
-          redis.setex(
-            "cooldown:#{user_id}:#{term}",
-            cooldown.to_i,
-            1
-          )
-        end
+        redis.setex("cooldown:#{user_id}:#{term}", config.cooldown.to_i, 1) if config.cooldown
       end
     end
 
