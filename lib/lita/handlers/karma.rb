@@ -4,18 +4,23 @@ module Lita
   module Handlers
     # Tracks karma points for arbitrary terms.
     class Karma < Handler
-      TERM_PATTERN = /[\[\]\p{Word}\._|\{\}]{2,}/
+      config :cooldown, types: [Integer, nil], default: 300
+      config :link_karma_threshold, types: [Integer, nil], default: 10
+      config :term_pattern, type: Regexp, default: /[\[\]\p{Word}\._|\{\}]{2,}/
+      config :term_normalizer do
+        validate do |value|
+          "must be a callable object" unless value.respond_to?(:call)
+        end
+      end
 
-      class << self
-        attr_accessor :term_pattern
+      config(:upgrade_modified, default: Proc.new {|score, user_ids| user_ids.map {|t| [1, t] } }) do
+        validate do |value|
+          "must be a callable object" unless value.respond_to?(:call)
+        end
       end
 
       on :loaded, :upgrade_data
       on :loaded, :define_routes
-
-      def self.default_config(config)
-        config.cooldown = 300
-      end
 
       def upgrade_data(payload)
         unless redis.exists("support:reverse_links")
@@ -31,8 +36,7 @@ module Lita
         unless redis.exists('support:modified_counts')
           terms = redis.zrange('terms', 0, -1, with_scores: true)
 
-          upgrade = Lita.config.handlers.karma.upgrade_modified ||
-            Proc.new {|score, user_ids| user_ids.map {|t| [1, t] } }
+          upgrade = Lita.config.handlers.karma.upgrade_modified
 
           terms.each do |(term, score)|
             mod_key = "modified:#{term}"
@@ -53,11 +57,8 @@ module Lita
       end
 
       def define_routes(payload)
-        self.class.term_pattern =
-          Lita.config.handlers.karma.term_pattern || TERM_PATTERN
-
         define_static_routes
-        define_dynamic_routes(term_pattern.source)
+        define_dynamic_routes(config.term_pattern.source)
       end
 
       def increment(response)
@@ -96,6 +97,18 @@ module Lita
       def link(response)
         response.matches.each do |match|
           term1, term2 = normalize_term(match[0]), normalize_term(match[1])
+
+          if config.link_karma_threshold
+            threshold = config.link_karma_threshold.abs
+
+            _total_score, term2_score, _links = scores_for(term2)
+            _total_score, term1_score, _links = scores_for(term1)
+
+            if term1_score.abs < threshold || term2_score.abs < threshold
+              response.reply "Terms must have less than -#{threshold} or more than #{threshold} karma to be linked or linked to."
+              return
+            end
+          end
 
           if redis.sadd("links:#{term1}", term2)
             redis.sadd("linked_to:#{term2}", term1)
@@ -282,10 +295,8 @@ HELP
       end
 
       def normalize_term(term)
-        term_normalizer = Lita.config.handlers.karma.term_normalizer
-
-        if term_normalizer.respond_to?(:call)
-          term_normalizer.call(term)
+        if config.term_normalizer
+          config.term_normalizer.call(term)
         else
           term.to_s.downcase.strip
         end
@@ -324,19 +335,7 @@ HELP
       end
 
       def set_cooldown(term, user_id)
-        cooldown = Lita.config.handlers.karma.cooldown
-
-        if cooldown
-          redis.setex(
-            "cooldown:#{user_id}:#{term}",
-            cooldown.to_i,
-            1
-          )
-        end
-      end
-
-      def term_pattern
-        self.class.term_pattern
+        redis.setex("cooldown:#{user_id}:#{term}", config.cooldown.to_i, 1) if config.cooldown
       end
     end
 
