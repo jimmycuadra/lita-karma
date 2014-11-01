@@ -19,6 +19,7 @@ gem "lita-karma"
 ### Optional attributes
 
 * `cooldown` (Integer, nil) - Controls how long a user must wait after modifying a term before they can modify it again. The value should be an integer number of seconds. Set it to `nil` to disable rate limiting. Default: `300` (5 minutes).
+* `link_karma_threshold` (Integer, nil) - Controls how many points a term must have before it can be linked to other terms or before terms can be linked to it. Treated as an absolute value, so it applies to both positive and negative karma. Set it to `nil` to allow all terms to be linked regardless of karma. Default: `10`.
 * `term_pattern` (Regexp) - Determines what Lita will recognize as a valid term for tracking karma. Default: `/[\[\]\p{Word}\._|\{\}]{2,}/`.
 * `term_normalizer` (Proc) - A custom callable that determines how each term will be normalized before being stored in Redis. The proc should take one argument, the term as matched via regular expression, and return one value, the normalized version of the term.
 * `decay` (Boolean) - Should karma disappear over time?
