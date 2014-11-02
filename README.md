@@ -22,7 +22,7 @@ gem "lita-karma"
 * `link_karma_threshold` (Integer, nil) - Controls how many points a term must have before it can be linked to other terms or before terms can be linked to it. Treated as an absolute value, so it applies to both positive and negative karma. Set it to `nil` to allow all terms to be linked regardless of karma. Default: `10`.
 * `term_pattern` (Regexp) - Determines what Lita will recognize as a valid term for tracking karma. Default: `/[\[\]\p{Word}\._|\{\}]{2,}/`.
 * `term_normalizer` (Proc) - A custom callable that determines how each term will be normalized before being stored in Redis. The proc should take one argument, the term as matched via regular expression, and return one value, the normalized version of the term.
-
+* `upgrade_modified` (Proc) - A custom callable that upgrades the modified list for a given term. It should take two arguments: the score and a list of user_ids. It should return a list of the form `[[score_1, user_id_1], …]` See [Upgrading](#Upgrading) below.
 
 ### Example
 
@@ -38,7 +38,29 @@ Lita.configure do |config|
 end
 ```
 
+## Upgrading
+
+As of version 2.2.0 lita-karma not only tracks who changed a given term, but how many times each user has done so.
+
+When upgrading an installation with existing karma data the modification lists are all automatically upgraded. The default behavior is to give each modifier one change, regardless of the current score.
+
+This behavior is customizable via the `upgrade_modified` callable invoked on the first startup after the upgrade. For example, to distribute the changes evenly among the existing modifiers:
+
+``` ruby
+Lita.configure do |config|
+  config.handlers.karma.upgrade_modified = lambda do |score, user_ids|
+    user_ids.each_with_index.map do |uid, i|
+      [score / user_ids.size + (i < score % size ? 1 : 0), uid]
+    end
+  end
+end
+```
+
+The `upgrade_modified` callable is only called *ONCE* (for every term) on the first launch after the upgrade to >= 2.2.0.
+
 ## Usage
+
+### Giving Karma
 
 Lita will add a karma point whenever it hears a term upvoted:
 
@@ -57,6 +79,8 @@ To check the current karma for a term without modifying it:
 ```
 term~~
 ```
+
+### Listing Karma
 
 To list the top scoring terms:
 
@@ -82,6 +106,8 @@ These commands will list 5 terms by default. To specify a number (no greater tha
 Lita: karma best 10
 ```
 
+### Linking Terms
+
 You can also link terms together. This adds one term's karma to another's whenever it is displayed. A link is uni-directional and non-destructive. You can unlink terms at any time.
 
 ```
@@ -102,6 +128,19 @@ foo~~
 ```
 
 When a term is linked, the total karma score is displayed first, followed by the score of the term without its linked terms in parentheses.
+
+### Quis custodiet ipsos custodes?
+
+Lita also tracks who has changed a given term (and as of 2.2.0, how many times).
+
+```
+foo++
+> foo: 3
+Lita: karma modified foo
+> bar (2), baz (1)
+```
+
+### Deleting Terms
 
 To permanently delete a term and all its links:
 
