@@ -114,15 +114,13 @@ foo~~
 
 When a term is linked, the total karma score is displayed first, followed by the score of the term without its linked terms in parentheses.
 
-### Quis custodiet ipsos custodes?
+### Modification lists
 
-Lita also tracks who has changed a given term (and as of 2.2.0, how many times).
+To get a list of the users who have upvoted or downvoted a term, and how many times they have:
 
 ```
-foo++
-> foo: 3
 Lita: karma modified foo
-> bar (2), baz (1)
+> Joe (2), Amy (1)
 ```
 
 ### Deleting Terms
@@ -137,9 +135,9 @@ Note that when deleting a term, the term will be matched exactly as typed, inclu
 
 ## Modification counts
 
-As of version 3.1.0 lita-karma not only tracks who changed a given term, but how many times each user has done so.
+Prior to verison 3.1.0, lita-karma only tracked which users had modified a term, but not how many times they had.
 
-When upgrading an installation with existing karma data the modification lists are all automatically upgraded. The default behavior is to give each modifier one change, regardless of the current score.
+When upgrading an installation with existing karma data the modification lists are all automatically upgraded to add counts. The default behavior is to give each modifier one change, regardless of the current score.
 
 This behavior is customizable via the `upgrade_modified` callable invoked on the first startup after the upgrade. For example, to distribute the changes evenly among the existing modifiers:
 
