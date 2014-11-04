@@ -1,6 +1,6 @@
 require "spec_helper"
 
-describe Lita::Handlers::Karma, lita_handler: true do
+describe Lita::Handlers::Karma::Chat, lita_handler: true do
   let(:payload) { double("payload") }
 
   prepend_before { registry.register_handler(Lita::Handlers::Karma::Config) }
@@ -325,8 +325,8 @@ MSG
     let(:offsets) { {} }
     let(:term) { :foo }
     before do
-      Lita.config.handlers.karma.decay = true
-      Lita.config.handlers.karma.decay_interval = 24 * 60 * 60
+      registry.config.handlers.karma.decay = true
+      registry.config.handlers.karma.decay_interval = 24 * 60 * 60
 
       subject.redis.zadd('terms', 8, term)
       subject.redis.zadd("modified:#{term}", mods.invert.to_a)
