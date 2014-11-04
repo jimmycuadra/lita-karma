@@ -9,7 +9,6 @@ en:
           one: "You cannot modify %{term} for another %{ttl} second."
           other: "You cannot modify %{term} for another %{ttl} seconds."
         delete_success: "%{term} has been deleted."
-        delete_failure: "%{term} does not exist."
         help:
           increment_key: TERM++
           increment_value: Increments TERM by one.

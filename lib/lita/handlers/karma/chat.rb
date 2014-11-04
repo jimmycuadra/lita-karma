@@ -24,12 +24,12 @@ module Lita::Handlers::Karma
       process_decay
 
       response.matches.each do |match|
-        term = normalize_term(match[0])
-        total_score, own_score, links = scores_for(term)
+        term = get_term(match[0])
 
-        string = "#{term}: #{total_score}"
-        unless links.empty?
-          string << " (#{own_score}), #{t("linked_to")}: #{links.join(", ")}"
+        string = "#{term}: #{term.total_score}"
+        unless term.links_with_scores.empty?
+          link_text = term.links_with_scores.map { |term, score| "#{term}: #{score}" }.join(", ")
+          string << " (#{term.own_score}), #{t("linked_to")}: #{link_text}"
         end
         output << string
       end
@@ -49,22 +49,15 @@ module Lita::Handlers::Karma
       process_decay
 
       response.matches.each do |match|
-        term1, term2 = normalize_term(match[0]), normalize_term(match[1])
+        term1 = get_term(match[0])
+        term2 = get_term(match[1])
 
-        if config.link_karma_threshold
-          threshold = config.link_karma_threshold.abs
+        result = term1.link(term2)
 
-          _total_score, term2_score, _links = scores_for(term2)
-          _total_score, term1_score, _links = scores_for(term1)
-
-          if term1_score.abs < threshold || term2_score.abs < threshold
-            response.reply t("threshold_not_satisfied", threshold: threshold)
-            return
-          end
-        end
-
-        if redis.sadd("links:#{term1}", term2)
-          redis.sadd("linked_to:#{term2}", term1)
+        case result
+        when Integer
+          response.reply t("threshold_not_satisfied", threshold: result)
+        when true
           response.reply t("link_success", source: term2, target: term1)
         else
           response.reply t("already_linked", source: term2, target: term1)
@@ -74,10 +67,10 @@ module Lita::Handlers::Karma
 
     def unlink(response)
       response.matches.each do |match|
-        term1, term2 = normalize_term(match[0]), normalize_term(match[1])
+        term1 = get_term(match[0])
+        term2 = get_term(match[1])
 
-        if redis.srem("links:#{term1}", term2)
-          redis.srem("linked_to:#{term2}", term1)
+        if term1.unlink(term2)
           response.reply t("unlink_success", source: term2, target: term1)
         else
           response.reply t("already_unlinked", source: term2, target: term1)
@@ -86,36 +79,28 @@ module Lita::Handlers::Karma
     end
 
     def modified(response)
-      term = normalize_term(response.args[1])
-
       process_decay
 
-      user_ids = redis.zrevrange("modified:#{term}", 0, -1, with_scores: true)
+      term = get_term(response.args[1])
 
-      if user_ids.empty?
+      users = term.modified
+
+      if users.empty?
         response.reply t("never_modified", term: term)
       else
-        output = user_ids.map do |(id, score)|
-          "#{Lita::User.find_by_id(id).name} (#{score.to_i})"
+        output = users.map do |(user, score)|
+          "#{user.name} (#{score})"
         end.join(", ")
+
         response.reply output
       end
     end
 
     def delete(response)
-      term = response.message.body.sub(/^karma delete /, "")
+      term = Term.new(robot, response.message.body.sub(/^karma delete /, ""), normalize: false)
 
-      redis.del("modified:#{term}")
-      redis.del("links:#{term}")
-      redis.smembers("linked_to:#{term}").each do |key|
-        redis.srem("links:#{key}", term)
-      end
-      redis.del("linked_to:#{term}")
-
-      if redis.zrem("terms", term)
+      if term.delete
         response.reply t("delete_success", term: term)
-      else
-        response.reply t("delete_failure", term: term)
       end
     end
 
@@ -199,6 +184,10 @@ module Lita::Handlers::Karma
       self.class.route(%r{^karma\s*$}, :list_best, command: true)
     end
 
+    def get_term(term)
+      Term.new(robot, term)
+    end
+
     def modify(response, delta)
       response.matches.each do |match|
         term = normalize_term(match[0])
@@ -242,19 +231,6 @@ module Lita::Handlers::Karma
       else
         response.reply output
       end
-    end
-
-    def scores_for(term)
-      own_score = total_score = redis.zscore("terms", term).to_i
-      links = []
-
-      redis.smembers("links:#{term}").each do |link|
-        link_score = redis.zscore("terms", link).to_i
-        links << "#{link}: #{link_score}"
-        total_score += link_score
-      end
-
-      [total_score, own_score, links]
     end
 
     def set_cooldown(term, user_id)

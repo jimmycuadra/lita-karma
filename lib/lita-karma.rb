@@ -14,4 +14,5 @@ end
 require 'lita/handlers/karma/action'
 require "lita/handlers/karma/chat"
 require 'lita/handlers/karma/config'
+require 'lita/handlers/karma/term'
 require 'lita/handlers/karma/upgrade'

@@ -282,11 +282,6 @@ MSG
       expect(replies.last).to eq("foo: 0")
     end
 
-    it "replies with a warning if the term doesn't exist" do
-      send_command("karma delete foo")
-      expect(replies.last).to eq("foo does not exist.")
-    end
-
     it "matches terms exactly, including leading whitespace" do
       term = "  'foo bar* 'baz''/ :"
       subject.redis.zincrby("terms", 1, term)
