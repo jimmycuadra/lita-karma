@@ -1,39 +1,36 @@
-require "lita"
-
 module Lita
   module Handlers
     # Tracks karma points for arbitrary terms.
     class Karma < Handler
-      require 'lita/handlers/karma/action'
+      CALLABLE_VALIDATOR = proc do |value|
+          "must be a callable object" unless value.respond_to?(:call)
+      end
+
+      class << self
+        def default_decay_distributor(index, item_count)
+          interval = Lita.config.handlers.karma.decay_interval.to_i
+          x = 4 * interval / (item_count + 1) * (index + 1)
+          interval - (interval * x.to_f / Math.sqrt(x ** 2 + interval ** 2))
+        end
+
+        def default_upgrader(_score, user_ids)
+          user_ids.map { |t| [1, t] }
+        end
+      end
+
       config :cooldown, types: [Integer, nil], default: 300
       config :link_karma_threshold, types: [Integer, nil], default: 10
       config :term_pattern, type: Regexp, default: /[\[\]\p{Word}\._|\{\}]{2,}/
       config :term_normalizer do
-        validate do |value|
-          "must be a callable object" unless value.respond_to?(:call)
-        end
+        validate(&CALLABLE_VALIDATOR)
       end
-
-      config(:upgrade_modified, default: Proc.new {|score, user_ids| user_ids.map {|t| [1, t] } }) do
-        validate do |value|
-          "must be a callable object" unless value.respond_to?(:call)
-        end
+      config :upgrade_modified, default: method(:default_upgrader) do
+        validate(&CALLABLE_VALIDATOR)
       end
-
       config :decay, types: [TrueClass, FalseClass], required: true, default: false
       config :decay_interval, types: [Integer, nil], default: 30 * 24 * 60 * 60
-      config(:decay_distributor,
-        default: Proc.new do |index, item_count|
-          interval = Lita.config.handlers.karma.decay_interval.to_i
-          # I wanted an asymptotic function with a reasonably soft
-          # acceleration curve. I’m not wedded to this one, but it seems to work.
-          x = 4 * interval / (item_count + 1) * (index + 1)
-          interval - (interval * x.to_f / Math.sqrt(x ** 2 + interval ** 2))
-        end
-      ) do
-        validate do |value|
-          "must be a callable object" unless value.respond_to?(:call)
-        end
+      config :decay_distributor, default: method(:default_decay_distributor) do
+        validate(&CALLABLE_VALIDATOR)
       end
 
       on :loaded, :upgrade_data
