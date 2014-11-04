@@ -46,6 +46,8 @@ module Lita::Handlers::Karma
     end
 
     def link(response)
+      process_decay
+
       response.matches.each do |match|
         term1, term2 = normalize_term(match[0]), normalize_term(match[1])
 
@@ -243,7 +245,6 @@ module Lita::Handlers::Karma
     end
 
     def scores_for(term)
-      process_decay
       own_score = total_score = redis.zscore("terms", term).to_i
       links = []
 
@@ -260,13 +261,9 @@ module Lita::Handlers::Karma
       redis.setex("cooldown:#{user_id}:#{term}", config.cooldown.to_i, 1) if config.cooldown
     end
 
-    def decay_enabled?
-      config.decay && config.decay_interval > 0
-    end
-
     def process_decay
-      return unless decay_enabled?
-      cutoff = Time.now.to_f - Lita.config.handlers.karma.decay_interval.to_f
+      return unless config.decay
+      cutoff = Time.now.to_i - config.decay_interval
       terms = []
       redis.zrangebyscore(:actions, '-inf', cutoff).each do |action|
         action = Action.deserialize(action)
@@ -282,9 +279,9 @@ module Lita::Handlers::Karma
     end
 
     def add_action(term, user_id, delta = 1, at = Time.now)
-      return unless decay_enabled?
+      return unless config.decay
       action = Action.new(term, user_id, delta, at)
-      redis.zadd(:actions, at.to_f, action.serialize)
+      redis.zadd(:actions, at.to_i, action.serialize)
     end
   end
 end

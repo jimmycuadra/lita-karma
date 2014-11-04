@@ -28,7 +28,7 @@ module Lita::Handlers::Karma
       validate(&CALLABLE_VALIDATOR)
     end
     config :decay, types: [TrueClass, FalseClass], required: true, default: false
-    config :decay_interval, types: [Integer, nil], default: 30 * 24 * 60 * 60
+    config :decay_interval, type: Integer, default: 30 * 24 * 60 * 60
     config :decay_distributor, default: method(:default_decay_distributor) do
       validate(&CALLABLE_VALIDATOR)
     end
