@@ -11,20 +11,16 @@ module Lita::Handlers::Karma
     end
 
     def increment(response)
-      process_decay
       user = response.user
       response.reply *response.matches.map { |match| get_term(match[0]).increment(user) }
     end
 
     def decrement(response)
-      process_decay
       user = response.user
       response.reply *response.matches.map { |match| get_term(match[0]).decrement(user) }
     end
 
     def check(response)
-      process_decay
-
       response.reply *response.matches.map { |match| get_term(match[0]).check }
     end
 
@@ -37,8 +33,6 @@ module Lita::Handlers::Karma
     end
 
     def link(response)
-      process_decay
-
       response.matches.each do |match|
         term1 = get_term(match[0])
         term2 = get_term(match[1])
@@ -70,8 +64,6 @@ module Lita::Handlers::Karma
     end
 
     def modified(response)
-      process_decay
-
       term = get_term(response.args[1])
 
       users = term.modified
@@ -169,8 +161,6 @@ module Lita::Handlers::Karma
     end
 
     def list(response, method_name)
-      process_decay
-
       n = (response.args[1] || 5).to_i - 1
       n = 25 if n > 25
 
@@ -185,29 +175,6 @@ module Lita::Handlers::Karma
       else
         response.reply output
       end
-    end
-
-    def process_decay
-      return unless config.decay
-      cutoff = Time.now.to_i - config.decay_interval
-      terms = []
-      redis.zrangebyscore(:actions, '-inf', cutoff).each do |action|
-        action = Action.deserialize(action)
-        redis.zincrby(:terms, -action.delta, action.term)
-        if action.user_id
-          redis.zincrby("modified:#{action.term}", -1, action.user_id)
-        end
-        terms << action.term
-      end
-
-      redis.zremrangebyscore(:actions, '-inf', cutoff)
-      terms.each {|t| redis.zremrangebyscore("modified:#{t}", '-inf', 0)}
-    end
-
-    def add_action(term, user_id, delta = 1, at = Time.now)
-      return unless config.decay
-      action = Action.new(term, user_id, delta, at)
-      redis.zadd(:actions, at.to_i, action.serialize)
     end
   end
 end

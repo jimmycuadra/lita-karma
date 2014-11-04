@@ -21,6 +21,7 @@ module Lita::Handlers::Karma
         n = 24 if n > 24
 
         handler = new(robot, '', normalize: false)
+        handler.decay
         handler.redis.public_send(redis_command, "terms", 0, n, with_scores: true)
       end
     end
@@ -36,6 +37,8 @@ module Lita::Handlers::Karma
     end
 
     def check
+      decay
+
       string = "#{self}: #{total_score}"
 
       unless links_with_scores.empty?
@@ -44,6 +47,23 @@ module Lita::Handlers::Karma
       end
 
       string
+    end
+
+    def decay
+      return unless config.decay
+
+      cutoff = Time.now.to_i - config.decay_interval
+      terms = []
+
+      redis.zrangebyscore(:actions, '-inf', cutoff).each do |json|
+        action = Action.from_json(json)
+        redis.zincrby(:terms, -action.delta, action.term)
+        redis.zincrby("modified:#{action.term}", -1, action.user_id)
+        terms << action.term
+      end
+
+      redis.zremrangebyscore(:actions, '-inf', cutoff)
+      terms.each {|term| redis.zremrangebyscore("modified:#{term}", '-inf', 0)}
     end
 
     def decrement(user)
@@ -65,6 +85,8 @@ module Lita::Handlers::Karma
     end
 
     def link(other)
+      decay
+
       if config.link_karma_threshold
         threshold = config.link_karma_threshold.abs
 
@@ -96,6 +118,8 @@ module Lita::Handlers::Karma
     end
 
     def modified
+      decay
+
       redis.zrevrange("modified:#{self}", 0, -1, with_scores: true).map do |(user_id, score)|
         [Lita::User.find_by_id(user_id), score.to_i]
       end
@@ -123,7 +147,15 @@ module Lita::Handlers::Karma
 
     private
 
+    def add_action(user_id, delta, time = Time.now)
+      return unless config.decay
+      action = Action.new(term, user_id, delta, time)
+      redis.zadd(:actions, time.to_i, action.serialize)
+    end
+
     def modify(user, delta)
+      decay
+
       user_id = user.id
 
       ttl = redis.ttl("cooldown:#{user_id}:#{term}")
@@ -134,6 +166,7 @@ module Lita::Handlers::Karma
         redis.zincrby("terms", delta, term)
         redis.zincrby("modified:#{self}", 1, user_id)
         redis.setex("cooldown:#{user_id}:#{self}", config.cooldown, 1) if config.cooldown
+        add_action(user_id, delta)
         check
       end
     end

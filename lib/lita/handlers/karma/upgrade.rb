@@ -52,7 +52,7 @@ module Lita::Handlers::Karma
       if decay_enabled? && !redis.exists('support:decay')
         current = Hash.new { |h, k| h[k] = Hash.new {|h,k| h[k] = 0} }
         redis.zrange(:actions, 0, -1).each_with_object(current) do |json, hash|
-          action = Action.deserialize(json)
+          action = Action.from_json(json)
           hash[action.term][action.user_id] += 1
         end
 
