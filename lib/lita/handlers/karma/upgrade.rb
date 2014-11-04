@@ -49,7 +49,7 @@ module Lita::Handlers::Karma
     end
 
     def upgrade_decay
-      if decay_enabled? && !redis.exists('support:decay_up_to_date')
+      if decay_enabled? && !redis.exists('support:decay')
         current = Hash.new { |h, k| h[k] = Hash.new {|h,k| h[k] = 0} }
         redis.zrange(:actions, 0, -1).each_with_object(current) do |json, hash|
           action = Action.deserialize(json)
@@ -81,7 +81,7 @@ module Lita::Handlers::Karma
 
           log.debug("Karma: decay update for '#{term}': known: #{known}, new: #{total - known}")
         end
-        redis.incr('support:decay_up_to_date')
+        redis.incr('support:decay')
       end
     end
 
