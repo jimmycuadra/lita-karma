@@ -73,14 +73,14 @@ module Lita::Handlers::Karma
             total += mod_score
 
             (mod_score - current[term][mod]).times do |i|
-              action_time = Time.now - distributor.call(i, mod_score)
+              action_time = Time.now - distributor.call(config.decay_interval, i, mod_score)
               add_action(term, mod, 1, action_time)
             end
           end
 
           remainder = term_score.to_i - total - current[term][nil]
           remainder.times do |i|
-            action_time = Time.now - distributor.call(i, remainder)
+            action_time = Time.now - distributor.call(config.decay_interval, i, remainder)
             add_action(term, nil, 1, action_time)
           end
           known = current[term].values.inject(0, &:+)

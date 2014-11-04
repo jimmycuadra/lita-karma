@@ -11,13 +11,11 @@ module Lita::Handlers::Karma
     end
 
     def increment(response)
-      user = response.user
-      response.reply *response.matches.map { |match| get_term(match[0]).increment(user) }
+      modify(response, :increment)
     end
 
     def decrement(response)
-      user = response.user
-      response.reply *response.matches.map { |match| get_term(match[0]).decrement(user) }
+      modify(response, :decrement)
     end
 
     def check(response)
@@ -156,15 +154,18 @@ module Lita::Handlers::Karma
       self.class.route(%r{^karma\s*$}, :list_best, command: true)
     end
 
+    def determine_list_count(response)
+      n = (response.args[1] || 5).to_i - 1
+      n = 25 if n > 25
+      n
+    end
+
     def get_term(term)
       Term.new(robot, term)
     end
 
     def list(response, method_name)
-      n = (response.args[1] || 5).to_i - 1
-      n = 25 if n > 25
-
-      terms_and_scores = Term.public_send(method_name, robot, n)
+      terms_and_scores = Term.public_send(method_name, robot, determine_list_count(response))
 
       output = terms_and_scores.each_with_index.map do |term_and_score, index|
         "#{index + 1}. #{term_and_score[0]} (#{term_and_score[1].to_i})"
@@ -175,6 +176,13 @@ module Lita::Handlers::Karma
       else
         response.reply output
       end
+    end
+
+    def modify(response, method_name)
+      user = response.user
+      response.reply *response.matches.map { |match|
+        get_term(match[0]).public_send(method_name, user)
+      }
     end
   end
 end

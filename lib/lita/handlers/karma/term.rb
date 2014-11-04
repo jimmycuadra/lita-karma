@@ -53,17 +53,15 @@ module Lita::Handlers::Karma
       return unless config.decay
 
       cutoff = Time.now.to_i - config.decay_interval
-      terms = []
 
-      redis.zrangebyscore(:actions, '-inf', cutoff).each do |json|
+      terms = redis.zrangebyscore(:actions, '-inf', cutoff).map do |json|
         action = Action.from_json(json)
         redis.zincrby(:terms, -action.delta, action.term)
-        redis.zincrby("modified:#{action.term}", -1, action.user_id)
-        terms << action.term
+        redis.zincrby("modified:#{action.term}", -1, action.user_id) if action.user_id
+        action.term
       end
 
-      redis.zremrangebyscore(:actions, '-inf', cutoff)
-      terms.each {|term| redis.zremrangebyscore("modified:#{term}", '-inf', 0)}
+      delete_decayed(terms, cutoff)
     end
 
     def decrement(user)
@@ -78,6 +76,11 @@ module Lita::Handlers::Karma
         redis.srem("links:#{key}", to_s)
       end
       redis.del("linked_to:#{self}")
+    end
+
+    def delete_decayed(terms, cutoff)
+      redis.zremrangebyscore(:actions, '-inf', cutoff)
+      terms.each { |term| redis.zremrangebyscore("modified:#{term}", '-inf', 0) }
     end
 
     def increment(user)
@@ -156,19 +159,22 @@ module Lita::Handlers::Karma
     def modify(user, delta)
       decay
 
-      user_id = user.id
-
-      ttl = redis.ttl("cooldown:#{user_id}:#{term}")
+      ttl = redis.ttl("cooldown:#{user.id}:#{term}")
 
       if ttl > 0
         t("cooling_down", term: self, ttl: ttl, count: ttl)
       else
-        redis.zincrby("terms", delta, term)
-        redis.zincrby("modified:#{self}", 1, user_id)
-        redis.setex("cooldown:#{user_id}:#{self}", config.cooldown, 1) if config.cooldown
-        add_action(user_id, delta)
-        check
+        modify!(user, delta)
       end
+    end
+
+    def modify!(user, delta)
+      user_id = user.id
+      redis.zincrby("terms", delta, term)
+      redis.zincrby("modified:#{self}", 1, user_id)
+      redis.setex("cooldown:#{user_id}:#{self}", config.cooldown, 1) if config.cooldown
+      add_action(user_id, delta)
+      check
     end
 
     def normalize_term(term)

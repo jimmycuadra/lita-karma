@@ -72,7 +72,9 @@ describe Lita::Handlers::Karma::Upgrade, lita_handler: true do
       end
 
       it 'spreads actions out using the decay_distributor Proc' do
-        registry.config.handlers.karma.decay_distributor = Proc.new {|i, count| 1000 * (i + 1) }
+        registry.config.handlers.karma.decay_distributor = Proc.new do |interval, i, count|
+          1000 * (i + 1)
+        end
         subject.redis.zadd('terms', 5, 'foo')
         subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
         time = Time.now
@@ -89,7 +91,7 @@ describe Lita::Handlers::Karma::Upgrade, lita_handler: true do
         subject.redis.zadd('terms', 50, 'foo')
         subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
         subject.upgrade_data(payload)
-        expect(subject.redis.zcard('actions')).to be(50)
+        expect(subject.redis.zcard('actions')).to eq(50)
       end
 
       it 'only creates missing actions' do
@@ -97,7 +99,7 @@ describe Lita::Handlers::Karma::Upgrade, lita_handler: true do
         subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
         [:bar, :baz, nil].each {|mod| subject.send(:add_action, 'foo', mod)}
         subject.upgrade_data(payload)
-        expect(subject.redis.zcard('actions')).to be(7)
+        expect(subject.redis.zcard('actions')).to eq(7)
       end
 
       it "skips if the update if it's already been done" do

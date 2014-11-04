@@ -24,7 +24,7 @@ gem "lita-karma"
 * `term_normalizer` (Proc) - A custom callable that determines how each term will be normalized before being stored in Redis. The proc should take one argument, the term as matched via regular expression, and return one value, the normalized version of the term.
 * `decay` (Boolean) - Should karma disappear over time?
 * `decay_interval` (Integer) - The time interval (in seconds) after which karma should disappear
-* `decay_distributor` (Proc) - A custom callable that defines how karma changes from the same user are distributed in time when upgrading an existing installation to use decay. It takes an index and an item count, and returns the number of seconds to subtract from current time. See [Karma Decay](#Karma-Decay) below.
+* `decay_distributor` (Proc) - A custom callable that defines how karma changes from the same user are distributed in time when upgrading an existing installation to use decay. It takes the configured decay interval, an index, and an item count as arguments, and returns the number of seconds to subtract from current time. See [Karma Decay](#Karma-Decay) below.
 * `upgrade_modified` (Proc) - A custom callable that upgrades the modified list for a given term. It should take two arguments: the score and a list of user_ids. It should return a list of the form `[[score_1, user_id_1], …]` See [Upgrading](#Upgrading) below.
 
 ### Example
@@ -167,7 +167,7 @@ The creation times of these actions are configurable, using the `decay_distribut
 Lita.configure do |config|
   config.handlers.karma.decay = true
   config.handlers.karma.decay_interval = 30 * 24 * 60 * 60
-  config.handlers.karma.decay_distributor = lambda do |index, item_count|
+  config.handlers.karma.decay_distributor = lambda do |decay_interval, index, item_count|
     # item_count: the total number of actions to be created in this batch.
     # index: the current index into that count.
 
