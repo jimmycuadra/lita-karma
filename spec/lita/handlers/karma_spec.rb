@@ -70,6 +70,62 @@ describe Lita::Handlers::Karma, lita_handler: true do
         expect(subject.redis.zrange('modified:foo', 0, -1, with_scores: true)).to eq [['bar', 0.0], ['baz', 2.0]]
       end
     end
+
+    describe 'score decay' do
+      before do
+        Lita.config.handlers.karma.decay = true
+        Lita.config.handlers.karma.decay_interval = 24 * 60 * 60
+      end
+
+      it 'creates actions to match the current scores' do
+        subject.redis.zadd('terms', 2, 'foo')
+        subject.redis.sadd('modified:foo', %w{bar baz})
+        subject.upgrade_data(payload)
+        expect(subject.redis.zcard('actions')).to be(2)
+      end
+
+      it 'creates actions for every counted modification' do
+        subject.redis.zadd('terms', 5, 'foo')
+        subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
+        subject.upgrade_data(payload)
+        expect(subject.redis.zcard('actions')).to be(5)
+      end
+
+      it 'spreads actions out using the decay_distributor Proc' do
+        Lita.config.handlers.karma.decay_distributor = Proc.new {|i, count| 1000 * (i + 1) }
+        subject.redis.zadd('terms', 5, 'foo')
+        subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
+        time = Time.now
+        subject.upgrade_data(payload)
+        actions = subject.redis.zrange('actions', 0, -1, with_scores: true)
+
+        # bar gets 1k & 2k, baz get 3k, 2k, & 1k
+        [3,2,2,1,1].zip(actions.map(&:last)).each do |expectation, value|
+          expect((time - value).to_f).to be_within(100).of(expectation * 1000)
+        end
+      end
+
+      it 'creates anonymous actions for the unknown modifications' do
+        subject.redis.zadd('terms', 50, 'foo')
+        subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
+        subject.upgrade_data(payload)
+        expect(subject.redis.zcard('actions')).to be(50)
+      end
+
+      it 'only creates missing actions' do
+        subject.redis.zadd('terms', 7, 'foo')
+        subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
+        [:bar, :baz, nil].each {|mod| subject.send(:add_action, 'foo', mod)}
+        subject.upgrade_data(payload)
+        expect(subject.redis.zcard('actions')).to be(7)
+      end
+
+      it 'skips if the actions are up-to-date' do
+        expect(subject.redis).to receive(:zrange).thrice.and_return([])
+        subject.upgrade_data(payload)
+        subject.upgrade_data(payload)
+      end
+    end
   end
 
   describe "#increment" do
@@ -106,6 +162,11 @@ describe Lita::Handlers::Karma, lita_handler: true do
       send_message("föö++")
       expect(replies.last).to eq("föö: 1")
     end
+
+    it "processes decay" do
+      expect(subject).to receive(:process_decay).at_least(:once)
+      send_message("foo++")
+    end
   end
 
   describe "#decrement" do
@@ -131,6 +192,11 @@ describe Lita::Handlers::Karma, lita_handler: true do
       send_message("foo--")
       expect(replies.last).to match(/cannot modify foo/)
     end
+
+    it "processes decay" do
+      expect(subject).to receive(:process_decay).at_least(:once)
+      send_message("foo--")
+    end
   end
 
   describe "#check" do
@@ -142,6 +208,11 @@ describe Lita::Handlers::Karma, lita_handler: true do
     it "matches multiple terms in one message" do
       send_message("foo~~ bar~~")
       expect(replies).to eq(["foo: 0", "bar: 0"])
+    end
+
+    it "processes decay" do
+      expect(subject).to receive(:process_decay).at_least(:once)
+      send_message("foo~~")
     end
   end
 
@@ -186,6 +257,11 @@ MSG
 1. one (3)
 2. two (2)
 MSG
+      end
+
+      it "processes decay" do
+        expect(subject).to receive(:process_decay).at_least(:once)
+        send_command("karma best 2")
       end
     end
   end
@@ -297,6 +373,11 @@ MSG
       send_command("karma modified foo")
       expect(replies.last).to eq("#{user.name} (2), #{other_user.name} (1)")
     end
+
+    it "processes decay" do
+      expect(subject).to receive(:process_decay).at_least(:once)
+      send_command("karma modified foo")
+    end
   end
 
   describe "#delete" do
@@ -347,6 +428,44 @@ MSG
       expect(replies.last).to eq("bar: 1")
       send_message("baz++")
       expect(replies.last).to eq("baz: 1")
+    end
+  end
+
+  describe '#process_decay' do
+    let(:mods) { {bar: 2, baz: 3, nil => 4} }
+    let(:offsets) { {} }
+    let(:term) { :foo }
+    before do
+      Lita.config.handlers.karma.decay = true
+      Lita.config.handlers.karma.decay_interval = 24 * 60 * 60
+
+      subject.redis.zadd('terms', 8, term)
+      subject.redis.zadd("modified:#{term}", mods.invert.to_a)
+      mods.each do |mod, score|
+        offset = offsets[mod].to_i
+        score.times do |i|
+          subject.send(:add_action, term, mod, 1, Time.now - (i+offset) * 24 * 60 * 60)
+        end
+      end
+    end
+
+    it 'should decrement scores' do
+      subject.send(:process_decay)
+      expect(subject.redis.zscore(:terms, term).to_i).to be(2)
+    end
+
+    it 'should remove decayed actions' do
+      subject.send(:process_decay)
+      expect(subject.redis.zcard(:actions).to_i).to be(3)
+    end
+
+    context 'with decayed modifiers' do
+      let(:offsets) { {baz: 1} }
+
+      it 'should remove them' do
+        subject.send(:process_decay)
+        expect(subject.redis.zcard("modified:#{term}")).to be(2)
+      end
     end
   end
 

@@ -22,15 +22,20 @@ gem "lita-karma"
 * `link_karma_threshold` (Integer, nil) - Controls how many points a term must have before it can be linked to other terms or before terms can be linked to it. Treated as an absolute value, so it applies to both positive and negative karma. Set it to `nil` to allow all terms to be linked regardless of karma. Default: `10`.
 * `term_pattern` (Regexp) - Determines what Lita will recognize as a valid term for tracking karma. Default: `/[\[\]\p{Word}\._|\{\}]{2,}/`.
 * `term_normalizer` (Proc) - A custom callable that determines how each term will be normalized before being stored in Redis. The proc should take one argument, the term as matched via regular expression, and return one value, the normalized version of the term.
+* `decay` (Boolean) - Should karma disappear over time?
+* `decay_interval` (Integer) - The time interval (in seconds) after which karma should disappear
+* `decay_distributor` (Proc) - A custom callable that defines how karma changes from the same user are distributed in time when upgrading an existing installation to use decay. It takes an index and an item count, and returns the number of seconds to subtract from current time. See [Karma Decay](#Karma-Decay) below.
 * `upgrade_modified` (Proc) - A custom callable that upgrades the modified list for a given term. It should take two arguments: the score and a list of user_ids. It should return a list of the form `[[score_1, user_id_1], …]` See [Upgrading](#Upgrading) below.
 
 ### Example
 
-This example configuration sets the cooldown to 10 minutes and changes the term pattern and normalization to allow multi-word terms bounded by `<>` or `:`, as previous versions of lita-karma did by default.
+This example configuration sets the cooldown to 10 minutes, turns on decay (karma disappears after 30 days), and changes the term pattern and normalization to allow multi-word terms bounded by `<>` or `:`, as previous versions of lita-karma did by default.
 
 ``` ruby
 Lita.configure do |config|
   config.handlers.karma.cooldown = 600
+  config.handlers.karma.decay = true
+  config.handlers.karma.decay_interval = 30 * 24 * 60 * 60
   config.handlers.karma.term_pattern = /[<:][^>:]+[>:]/
   config.handlers.karma.term_normalizer = lambda do |term|
     term.to_s.downcase.strip.sub(/[<:]([^>:]+)[>:]/, '\1')
@@ -56,7 +61,36 @@ Lita.configure do |config|
 end
 ```
 
-The `upgrade_modified` callable is only called *ONCE* (for every term) on the first launch after the upgrade to >= 2.2.0.
+The `upgrade_modified` callable is used only *ONCE* (for every term) on the first launch after the upgrade to >= 2.2.0.
+
+## Karma Decay
+
+As of version 2.2.0, lita-karma can age karma changes out over time. When enabled, as the `decay_interval` seconds pass, karma changes disappear, and the term will eventually return to 0 if no further changes are made to it.
+
+When upgrading an installation with existing karma, actions must be created for the existing scores. Actions are split up by `modified:<term>`. Additional anonymous actions are added if the modified counts do not add up to the total score, as they probably will not if the default `upgrade_modified` Proc is used.
+
+By default the upgrade uses an asymptotic function on the actions of a given user that will cause decay to start slowly but accellerate over time. The more actions for the given user, the softer the curve.
+
+The creation times of these actions are configurable, using the `decay_distributor` Proc. For example, to set all of the creation times to the upgrade time:
+
+```ruby
+Lita.configure do |config|
+  config.handlers.karma.decay = true
+  config.handlers.karma.decay_interval = 30 * 24 * 60 * 60
+  config.handlers.karma.decay_distributor = lambda do |index, item_count|
+    # item_count: the total number of actions to be created in this batch.
+    # index: the current index into that count.
+
+    # This Proc should return the number of seconds to subtract from the
+    # current time. (Setting them all to 0 will cause them all to have now as
+    # their creation time)
+
+    0
+  end
+end
+```
+
+The `decay_distributor` callable is used only *ONCE* on the first launch after the upgrade to >= 2.2.0.
 
 ## Usage
 

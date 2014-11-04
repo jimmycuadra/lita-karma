@@ -4,6 +4,7 @@ module Lita
   module Handlers
     # Tracks karma points for arbitrary terms.
     class Karma < Handler
+      require 'lita/handlers/karma/action'
       config :cooldown, types: [Integer, nil], default: 300
       config :link_karma_threshold, types: [Integer, nil], default: 10
       config :term_pattern, type: Regexp, default: /[\[\]\p{Word}\._|\{\}]{2,}/
@@ -19,41 +20,29 @@ module Lita
         end
       end
 
+      config :decay, types: [TrueClass, FalseClass], required: true, default: false
+      config :decay_interval, types: [Integer, nil], default: 30 * 24 * 60 * 60
+      config(:decay_distributor,
+        default: Proc.new do |index, item_count|
+          interval = Lita.config.handlers.karma.decay_interval.to_i
+          # I wanted an asymptotic function with a reasonably soft
+          # acceleration curve. I’m not wedded to this one, but it seems to work.
+          x = 4 * interval / (item_count + 1) * (index + 1)
+          interval - (interval * x.to_f / Math.sqrt(x ** 2 + interval ** 2))
+        end
+      ) do
+        validate do |value|
+          "must be a callable object" unless value.respond_to?(:call)
+        end
+      end
+
       on :loaded, :upgrade_data
       on :loaded, :define_routes
 
       def upgrade_data(payload)
-        unless redis.exists("support:reverse_links")
-          redis.keys("links:*").each do |key|
-            term = key.sub(/^links:/, "")
-            redis.smembers(key).each do |link|
-              redis.sadd("linked_to:#{link}", term)
-            end
-          end
-          redis.incr("support:reverse_links")
-        end
-
-        unless redis.exists('support:modified_counts')
-          terms = redis.zrange('terms', 0, -1, with_scores: true)
-
-          upgrade = Lita.config.handlers.karma.upgrade_modified
-
-          terms.each do |(term, score)|
-            mod_key = "modified:#{term}"
-            next unless redis.type(mod_key) == 'set'
-            tmp_key = "modified_flat:#{term}"
-
-            user_ids = redis.smembers(mod_key)
-            score = score.to_i
-            result = upgrade.call(score, user_ids)
-            redis.rename(mod_key, tmp_key)
-            redis.zadd(mod_key, result)
-            redis.del(tmp_key)
-            Lita.logger.debug("Karma: Upgraded modified set for '#{term}'")
-          end
-
-          redis.incr("support:modified_counts")
-        end
+        upgrade_links
+        upgrade_modified_counts
+        upgrade_decay
       end
 
       def define_routes(payload)
@@ -71,6 +60,8 @@ module Lita
 
       def check(response)
         output = []
+
+        process_decay
 
         response.matches.each do |match|
           term = normalize_term(match[0])
@@ -139,6 +130,8 @@ module Lita
           response.reply "Format: #{robot.name}: karma modified TERM"
           return
         end
+
+        process_decay
 
         user_ids = redis.zrevrange("modified:#{term}", 0, -1, with_scores: true)
 
@@ -289,6 +282,7 @@ HELP
           redis.zincrby("terms", delta, term)
           redis.zincrby("modified:#{term}", 1, user_id)
           set_cooldown(term, response.user.id)
+          add_action(term, user_id, delta)
         end
 
         check(response)
@@ -306,6 +300,8 @@ HELP
         n = (response.args[1] || 5).to_i - 1
         n = 25 if n > 25
 
+        process_decay
+
         terms_scores = redis.public_send(
           redis_command, "terms", 0, n, with_scores: true
         )
@@ -322,6 +318,7 @@ HELP
       end
 
       def scores_for(term)
+        process_decay
         own_score = total_score = redis.zscore("terms", term).to_i
         links = []
 
@@ -336,6 +333,106 @@ HELP
 
       def set_cooldown(term, user_id)
         redis.setex("cooldown:#{user_id}:#{term}", config.cooldown.to_i, 1) if config.cooldown
+      end
+
+      def upgrade_links
+        unless redis.exists("support:reverse_links")
+          redis.keys("links:*").each do |key|
+            term = key.sub(/^links:/, "")
+            redis.smembers(key).each do |link|
+              redis.sadd("linked_to:#{link}", term)
+            end
+          end
+          redis.incr("support:reverse_links")
+        end
+      end
+
+      def upgrade_modified_counts
+        unless redis.exists('support:modified_counts')
+          terms = redis.zrange('terms', 0, -1, with_scores: true)
+
+          upgrade = Lita.config.handlers.karma.upgrade_modified
+
+          terms.each do |(term, score)|
+            mod_key = "modified:#{term}"
+            next unless redis.type(mod_key) == 'set'
+            tmp_key = "modified_flat:#{term}"
+
+            user_ids = redis.smembers(mod_key)
+            score = score.to_i
+            result = upgrade.call(score, user_ids)
+            redis.rename(mod_key, tmp_key)
+            redis.zadd(mod_key, result)
+            redis.del(tmp_key)
+            Lita.logger.debug("Karma: Upgraded modified set for '#{term}'")
+          end
+
+          redis.incr("support:modified_counts")
+        end
+      end
+
+      def upgrade_decay
+        if decay_enabled? && !redis.exists('support:decay_up_to_date')
+          current = Hash.new { |h, k| h[k] = Hash.new {|h,k| h[k] = 0} }
+          redis.zrange(:actions, 0, -1).each_with_object(current) do |json, hash|
+            action = Action.deserialize(json)
+            hash[action.term][action.user_id] += 1
+          end
+
+          terms = redis.zrange('terms', 0, -1, with_scores: true)
+          distributor = Lita.config.handlers.karma.decay_distributor
+
+          terms.each do |(term, term_score)|
+            mod_key = "modified:#{term}"
+            total = 0
+            redis.zrange(mod_key, 0, -1, with_scores: true).each do |(mod, mod_score)|
+              mod_score = mod_score.to_i
+              total += mod_score
+
+              (mod_score - current[term][mod]).times do |i|
+                action_time = Time.now - distributor.call(i, mod_score)
+                add_action(term, mod, 1, action_time)
+              end
+            end
+
+            remainder = term_score.to_i - total - current[term][nil]
+            remainder.times do |i|
+              action_time = Time.now - distributor.call(i, remainder)
+              add_action(term, nil, 1, action_time)
+            end
+            known = current[term].values.inject(0, &:+)
+
+            Lita.logger.debug("Karma: decay update for '#{term}': known: #{known}, new: #{total - known}")
+          end
+          redis.incr('support:decay_up_to_date')
+        end
+      end
+
+      def decay_enabled?
+        Lita.config.handlers.karma.decay && Lita.config.handlers.karma.decay_interval.to_i > 0
+      end
+
+      def process_decay
+        return unless decay_enabled?
+        cutoff = Time.now.to_f - Lita.config.handlers.karma.decay_interval.to_f
+        terms = []
+        redis.zrangebyscore(:actions, '-inf', cutoff).each do |action|
+          action = Action.deserialize(action)
+          redis.zincrby(:terms, -action.delta, action.term)
+          if action.user_id
+            redis.zincrby("modified:#{action.term}", -1, action.user_id)
+          end
+          terms << action.term
+        end
+
+        redis.zremrangebyscore(:actions, '-inf', cutoff)
+        terms.each {|t| redis.zremrangebyscore("modified:#{t}", '-inf', 0)}
+      end
+
+      def add_action(term, user_id, delta = 1, at = Time.now)
+        return unless decay_enabled?
+        action = Action.new(term, user_id, delta, at)
+        redis.zadd(:actions, at.to_f, action.serialize)
       end
     end
 
