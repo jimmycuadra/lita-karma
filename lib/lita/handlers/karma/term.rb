@@ -16,6 +16,17 @@ module Lita::Handlers::Karma
       term == other.term
     end
 
+    def check
+      string = "#{self}: #{total_score}"
+
+      unless links_with_scores.empty?
+        link_text = links_with_scores.map { |term, score| "#{term}: #{score}" }.join(", ")
+        string << " (#{own_score}), #{t("linked_to")}: #{link_text}"
+      end
+
+      string
+    end
+
     def decrement(user)
       modify(user, -1)
     end

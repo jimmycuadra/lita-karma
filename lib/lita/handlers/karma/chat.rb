@@ -19,22 +19,9 @@ module Lita::Handlers::Karma
     end
 
     def check(response)
-      output = []
-
       process_decay
 
-      response.matches.each do |match|
-        term = get_term(match[0])
-
-        string = "#{term}: #{term.total_score}"
-        unless term.links_with_scores.empty?
-          link_text = term.links_with_scores.map { |term, score| "#{term}: #{score}" }.join(", ")
-          string << " (#{term.own_score}), #{t("linked_to")}: #{link_text}"
-        end
-        output << string
-      end
-
-      response.reply *output
+      response.reply *response.matches.map { |match| get_term(match[0]).check }
     end
 
     def list_best(response)
