@@ -14,6 +14,8 @@ module Lita::Handlers::Karma
 
     def upgrade_links
       unless redis.exists("support:reverse_links")
+        log.debug "Upgrading data to include reverse links."
+
         redis.keys("links:*").each do |key|
           term = key.sub(/^links:/, "")
           redis.smembers(key).each do |link|
@@ -26,6 +28,8 @@ module Lita::Handlers::Karma
 
     def upgrade_modified_counts
       unless redis.exists('support:modified_counts')
+        log.debug "Upgrading data to include modified counts."
+
         terms = redis.zrange('terms', 0, -1, with_scores: true)
 
         upgrade = config.upgrade_modified
@@ -50,6 +54,8 @@ module Lita::Handlers::Karma
 
     def upgrade_decay
       if decay_enabled? && !redis.exists('support:decay')
+        log.debug "Upgrading data to include karma decay."
+
         current = Hash.new { |h, k| h[k] = Hash.new {|h,k| h[k] = 0} }
         redis.zrange(:actions, 0, -1).each_with_object(current) do |json, hash|
           action = Action.from_json(json)

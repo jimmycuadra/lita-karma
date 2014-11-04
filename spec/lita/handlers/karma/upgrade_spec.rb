@@ -17,7 +17,7 @@ describe Lita::Handlers::Karma::Upgrade, lita_handler: true do
       end
 
       it "skips the update if it's already been done" do
-        expect(subject.redis).to receive(:keys).once.and_return([])
+        expect(subject.log).to receive(:debug).with(/reverse links/).once
         subject.upgrade_data(payload)
         subject.upgrade_data(payload)
       end
@@ -35,8 +35,8 @@ describe Lita::Handlers::Karma::Upgrade, lita_handler: true do
         expect(subject.redis.zrange('modified:foo', 0, -1, with_scores: true)).to eq [['bar', 1.0], ['baz', 1.0]]
       end
 
-      xit "skips the update if it's already been done" do
-        expect(subject.redis).to receive(:zrange).once.and_return([])
+      it "skips the update if it's already been done" do
+        expect(subject.log).to receive(:debug).with(/modified counts/).once
         subject.upgrade_data(payload)
         subject.upgrade_data(payload)
       end
@@ -100,8 +100,8 @@ describe Lita::Handlers::Karma::Upgrade, lita_handler: true do
         expect(subject.redis.zcard('actions')).to be(7)
       end
 
-      it 'skips if the actions are up-to-date' do
-        expect(subject.redis).to receive(:zrange).thrice.and_return([])
+      it "skips if the update if it's already been done" do
+        expect(subject.log).to receive(:debug).with(/decay/).once
         subject.upgrade_data(payload)
         subject.upgrade_data(payload)
       end
