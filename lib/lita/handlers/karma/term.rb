@@ -106,12 +106,17 @@ module Lita::Handlers::Karma
 
     def modify(user, delta)
       user_id = user.id
-      cooldown = redis.ttl("cooldown:#{user_id}:#{term}")
-      return cooldown if cooldown
-      redis.zincrby("terms", delta, term)
-      redis.zincrby("modified:#{term}", 1, user_id)
-      redis.setex("cooldown:#{user_id}:#{term}", config.cooldown, 1) if config.cooldown
-      true
+
+      ttl = redis.ttl("cooldown:#{user_id}:#{term}")
+
+      if ttl > 0
+        t("cooling_down", term: self, ttl: ttl, count: ttl)
+      else
+        redis.zincrby("terms", delta, term)
+        redis.zincrby("modified:#{self}", 1, user_id)
+        redis.setex("cooldown:#{user_id}:#{self}", config.cooldown, 1) if config.cooldown
+        check
+      end
     end
 
     def normalize_term(term)

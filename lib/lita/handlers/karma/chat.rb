@@ -11,11 +11,15 @@ module Lita::Handlers::Karma
     end
 
     def increment(response)
-      modify(response, 1)
+      process_decay
+      user = response.user
+      response.reply *response.matches.map { |match| get_term(match[0]).increment(user) }
     end
 
     def decrement(response)
-      modify(response, -1)
+      process_decay
+      user = response.user
+      response.reply *response.matches.map { |match| get_term(match[0]).decrement(user) }
     end
 
     def check(response)
@@ -93,17 +97,6 @@ module Lita::Handlers::Karma
 
     private
 
-    def cooling_down?(term, user_id, response)
-      ttl = redis.ttl("cooldown:#{user_id}:#{term}")
-
-      if ttl >= 0
-        response.reply t("cooling_down", term: term, ttl: ttl, count: ttl)
-        return true
-      else
-        return false
-      end
-    end
-
     def define_dynamic_routes(pattern)
       self.class.route(
         %r{(#{pattern})\+\+},
@@ -175,30 +168,6 @@ module Lita::Handlers::Karma
       Term.new(robot, term)
     end
 
-    def modify(response, delta)
-      response.matches.each do |match|
-        term = normalize_term(match[0])
-        user_id = response.user.id
-
-        return if cooling_down?(term, user_id, response)
-
-        redis.zincrby("terms", delta, term)
-        redis.zincrby("modified:#{term}", 1, user_id)
-        set_cooldown(term, response.user.id)
-        add_action(term, user_id, delta)
-      end
-
-      check(response)
-    end
-
-    def normalize_term(term)
-      if config.term_normalizer
-        config.term_normalizer.call(term)
-      else
-        term.to_s.downcase.strip
-      end
-    end
-
     def list(response, redis_command)
       n = (response.args[1] || 5).to_i - 1
       n = 25 if n > 25
@@ -218,10 +187,6 @@ module Lita::Handlers::Karma
       else
         response.reply output
       end
-    end
-
-    def set_cooldown(term, user_id)
-      redis.setex("cooldown:#{user_id}:#{term}", config.cooldown.to_i, 1) if config.cooldown
     end
 
     def process_decay
