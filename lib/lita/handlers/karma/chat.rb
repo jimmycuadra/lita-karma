@@ -134,43 +134,33 @@ module Lita::Handlers::Karma
       self.class.route(
         %r{(#{pattern})\+\+},
         :increment,
-        help: { "TERM++" => "Increments TERM by one." }
+        help: { t("help.increment_key") => t("help.increment_value") }
       )
 
       self.class.route(
         %r{(#{pattern})\-\-},
         :decrement,
-        help: { "TERM--" => "Decrements TERM by one." }
+        help: { t("help.decrement_key") => t("help.decrement_value") }
       )
 
       self.class.route(
         %r{(#{pattern})~~},
         :check,
-        help: { "TERM~~" => "Shows the current karma of TERM." }
+        help: { t("help.check_key") => t("help.check_value") }
       )
 
       self.class.route(
         %r{^(#{pattern})\s*\+=\s*(#{pattern})},
         :link,
         command: true,
-        help: {
-          "TERM1 += TERM2" => <<-HELP.chomp
-Links TERM2 to TERM1. TERM1's karma will then be displayed as the sum of its \
-own and TERM2's karma.
-HELP
-        }
+        help: { t("help.link_key") => t("help.link_value") }
       )
 
       self.class.route(
         %r{^(#{pattern})\s*-=\s*(#{pattern})},
         :unlink,
         command: true,
-        help: {
-          "TERM1 -= TERM2" => <<-HELP.chomp
-Unlinks TERM2 from TERM1. TERM1's karma will no longer be displayed as the sum \
-of its own and TERM2's karma.
-HELP
-        }
+        help: { t("help.unlink_key") => t("help.unlink_value") }
       )
     end
 
@@ -179,33 +169,21 @@ HELP
         %r{^karma\s+worst},
         :list_worst,
         command: true,
-        help: {
-          "karma worst [N]" => <<-HELP.chomp
-Lists the bottom N terms by karma. N defaults to 5.
-HELP
-        }
+        help: { t("help.list_worst_key") => t("help.list_worst_value") }
       )
 
       self.class.route(
         %r{^karma\s+best},
         :list_best,
         command: true,
-        help: {
-          "karma best [N]" => <<-HELP.chomp
-Lists the top N terms by karma. N defaults to 5.
-HELP
-        }
+        help: { t("help.list_best_key") => t("help.list_best_value") }
       )
 
       self.class.route(
         %r{^karma\s+modified\s+.+},
         :modified,
         command: true,
-        help: {
-          "karma modified TERM" => <<-HELP.chomp
-Lists the names of users who have upvoted or downvoted TERM.
-HELP
-        }
+        help: { t("help.modified_key") => t("help.modified_value") }
       )
 
       self.class.route(
@@ -213,12 +191,7 @@ HELP
         :delete,
         command: true,
         restrict_to: :karma_admins,
-        help: {
-          "karma delete TERM" => <<-HELP.chomp
-Permanently removes TERM and all its links. TERM is matched exactly as typed \
-and does not adhere to the usual pattern for terms.
-HELP
-        }
+        help: { t("help.delete_key") => t("help.delete_value") }
       )
 
       self.class.route(%r{^karma\s*$}, :list_best, command: true)

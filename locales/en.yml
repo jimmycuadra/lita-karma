@@ -10,6 +10,27 @@ en:
           other: "You cannot modify %{term} for another %{ttl} seconds."
         delete_success: "%{term} has been deleted."
         delete_failure: "%{term} does not exist."
+        help:
+          increment_key: TERM++
+          increment_value: Increments TERM by one.
+          decrement_key: TERM--
+          decrement_value: Decrements TERM by one.
+          check_key: TERM~~
+          check_value: Shows the current karma of TERM.
+          link_key: TERM1 += TERM2
+          link_value: Links TERM2 to TERM1.
+          unlink_key: TERM1 -= TERM2
+          unlink_value: Unlinks TERM2 from TERM1.
+          list_worst_key: "karma worst [N]"
+          list_worst_value: Lists the bottom N terms by karma. N defaults to 5.
+          list_best_key: "karma best [N]"
+          list_best_value: Lists the top N terms by karma. N defaults to 5.
+          modified_key: karma modified TERM
+          modified_value: Lists the names of users who have upvoted or downvoted TERM.
+          delete_key: karma delete TERM
+          delete_value: >-
+            Permanently removes TERM and all its link information. TERM is matched
+            exactly as typed and does not adhere to the usual pattern for terms.
         link_success: "%{source} has been linked to %{target}."
         linked_to: linked to
         never_modified: "%{term} has never been modified."
