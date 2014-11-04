@@ -29,11 +29,11 @@ module Lita::Handlers::Karma
     end
 
     def list_best(response)
-      list(response, :zrevrange)
+      list(response, :list_best)
     end
 
     def list_worst(response)
-      list(response, :zrange)
+      list(response, :list_worst)
     end
 
     def link(response)
@@ -168,21 +168,19 @@ module Lita::Handlers::Karma
       Term.new(robot, term)
     end
 
-    def list(response, redis_command)
+    def list(response, method_name)
+      process_decay
+
       n = (response.args[1] || 5).to_i - 1
       n = 25 if n > 25
 
-      process_decay
+      terms_and_scores = Term.public_send(method_name, robot, n)
 
-      terms_scores = redis.public_send(
-        redis_command, "terms", 0, n, with_scores: true
-      )
-
-      output = terms_scores.each_with_index.map do |term_score, index|
-        "#{index + 1}. #{term_score[0]} (#{term_score[1].to_i})"
+      output = terms_and_scores.each_with_index.map do |term_and_score, index|
+        "#{index + 1}. #{term_and_score[0]} (#{term_and_score[1].to_i})"
       end.join("\n")
 
-      if output.length == 0
+      if output.empty?
         response.reply t("no_terms")
       else
         response.reply output

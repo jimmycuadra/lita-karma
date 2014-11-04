@@ -6,6 +6,25 @@ module Lita::Handlers::Karma
 
     attr_reader :term
 
+    class << self
+      def list_best(robot, n = 5)
+        list(:zrevrange, robot, n)
+      end
+
+      def list_worst(robot, n = 5)
+        list(:zrange, robot, n)
+      end
+
+      private
+
+      def list(redis_command, robot, n)
+        n = 24 if n > 24
+
+        handler = new(robot, '', normalize: false)
+        handler.redis.public_send(redis_command, "terms", 0, n, with_scores: true)
+      end
+    end
+
     def initialize(robot, term, normalize: true)
       super(robot)
       @term = normalize ? normalize_term(term) : term
