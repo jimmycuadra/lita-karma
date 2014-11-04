@@ -6,3 +6,5 @@ Lita.load_locales Dir[File.expand_path(
 
 require "lita/handlers/karma"
 require 'lita/handlers/karma/action'
+require 'lita/handlers/karma/config'
+require 'lita/handlers/karma/upgrade'
