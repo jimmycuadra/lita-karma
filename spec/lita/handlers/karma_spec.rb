@@ -15,7 +15,7 @@ describe Lita::Handlers::Karma, lita_handler: true do
   it { is_expected.to route("foo~~").to(:check) }
   it { is_expected.to route_command("karma best").to(:list_best) }
   it { is_expected.to route_command("karma worst").to(:list_worst) }
-  it { is_expected.to route_command("karma modified").to(:modified) }
+  it { is_expected.to route_command("karma modified foo").to(:modified) }
   it do
     is_expected.to route_command("karma delete").with_authorization_for(:karma_admins).to(:delete)
   end
@@ -350,16 +350,6 @@ MSG
   end
 
   describe "#modified" do
-    it "replies with the required format if a term is not provided" do
-      send_command("karma modified")
-      expect(replies.last).to match(/^Format:/)
-    end
-
-    it "replies with the required format if the term is an empty string" do
-      send_command("karma modified '   '")
-      expect(replies.last).to match(/^Format:/)
-    end
-
     it "replies with a message if the term hasn't been modified" do
       send_command("karma modified foo")
       expect(replies.last).to match(/never been modified/)

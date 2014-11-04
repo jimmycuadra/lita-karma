@@ -3,7 +3,7 @@ module Lita
     # Tracks karma points for arbitrary terms.
     class Karma < Handler
       CALLABLE_VALIDATOR = proc do |value|
-          "must be a callable object" unless value.respond_to?(:call)
+          t("callable_required") unless value.respond_to?(:call)
       end
 
       class << self
@@ -66,7 +66,7 @@ module Lita
 
           string = "#{term}: #{total_score}"
           unless links.empty?
-            string << " (#{own_score}), linked to: #{links.join(", ")}"
+            string << " (#{own_score}), #{t("linked_to")}: #{links.join(", ")}"
           end
           output << string
         end
@@ -93,16 +93,16 @@ module Lita
             _total_score, term1_score, _links = scores_for(term1)
 
             if term1_score.abs < threshold || term2_score.abs < threshold
-              response.reply "Terms must have less than -#{threshold} or more than #{threshold} karma to be linked or linked to."
+              response.reply t("threshold_not_satisfied", threshold: threshold)
               return
             end
           end
 
           if redis.sadd("links:#{term1}", term2)
             redis.sadd("linked_to:#{term2}", term1)
-            response.reply "#{term2} has been linked to #{term1}."
+            response.reply t("link_success", source: term2, target: term1)
           else
-            response.reply "#{term2} is already linked to #{term1}."
+            response.reply t("already_linked", source: term2, target: term1)
           end
         end
       end
@@ -113,9 +113,9 @@ module Lita
 
           if redis.srem("links:#{term1}", term2)
             redis.srem("linked_to:#{term2}", term1)
-            response.reply "#{term2} has been unlinked from #{term1}."
+            response.reply t("unlink_success", source: term2, target: term1)
           else
-            response.reply "#{term2} is not linked to #{term1}."
+            response.reply t("already_unlinked", source: term2, target: term1)
           end
         end
       end
@@ -123,17 +123,12 @@ module Lita
       def modified(response)
         term = normalize_term(response.args[1])
 
-        if term.empty?
-          response.reply "Format: #{robot.name}: karma modified TERM"
-          return
-        end
-
         process_decay
 
         user_ids = redis.zrevrange("modified:#{term}", 0, -1, with_scores: true)
 
         if user_ids.empty?
-          response.reply "#{term} has never been modified."
+          response.reply t("never_modified", term: term)
         else
           output = user_ids.map do |(id, score)|
             "#{User.find_by_id(id).name} (#{score.to_i})"
@@ -153,9 +148,9 @@ module Lita
         redis.del("linked_to:#{term}")
 
         if redis.zrem("terms", term)
-          response.reply("#{term} has been deleted.")
+          response.reply t("delete_success", term: term)
         else
-          response.reply("#{term} does not exist.")
+          response.reply t("delete_failure", term: term)
         end
       end
 
@@ -165,10 +160,7 @@ module Lita
         ttl = redis.ttl("cooldown:#{user_id}:#{term}")
 
         if ttl >= 0
-          cooldown_message =
-            "You cannot modify #{term} for another #{ttl} second"
-          cooldown_message << (ttl == 1 ? "." : "s.")
-          response.reply cooldown_message
+          response.reply t("cooling_down", term: term, ttl: ttl, count: ttl)
           return true
         else
           return false
@@ -243,7 +235,7 @@ HELP
         )
 
         self.class.route(
-          %r{^karma\s+modified},
+          %r{^karma\s+modified\s+.+},
           :modified,
           command: true,
           help: {
@@ -308,7 +300,7 @@ HELP
         end.join("\n")
 
         if output.length == 0
-          response.reply "There are no terms being tracked yet."
+          response.reply t("no_terms")
         else
           response.reply output
         end
