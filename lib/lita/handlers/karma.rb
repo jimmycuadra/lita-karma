@@ -361,7 +361,7 @@ HELP
             redis.rename(mod_key, tmp_key)
             redis.zadd(mod_key, result)
             redis.del(tmp_key)
-            Lita.logger.debug("Karma: Upgraded modified set for '#{term}'")
+            log.debug("Karma: Upgraded modified set for '#{term}'")
           end
 
           redis.incr("support:modified_counts")
@@ -399,14 +399,14 @@ HELP
             end
             known = current[term].values.inject(0, &:+)
 
-            Lita.logger.debug("Karma: decay update for '#{term}': known: #{known}, new: #{total - known}")
+            log.debug("Karma: decay update for '#{term}': known: #{known}, new: #{total - known}")
           end
           redis.incr('support:decay_up_to_date')
         end
       end
 
       def decay_enabled?
-        Lita.config.handlers.karma.decay && Lita.config.handlers.karma.decay_interval.to_i > 0
+        config.decay && config.decay_interval > 0
       end
 
       def process_decay
