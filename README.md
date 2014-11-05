@@ -24,8 +24,8 @@ gem "lita-karma"
 * `term_normalizer` (Proc) - A custom callable that determines how each term will be normalized before being stored in Redis. The proc should take one argument, the term as matched via regular expression, and return one value, the normalized version of the term.
 * `decay` (Boolean) - Should karma disappear over time?
 * `decay_interval` (Integer) - The time interval (in seconds) after which karma should disappear
-* `decay_distributor` (Proc) - A custom callable that defines how karma changes from the same user are distributed in time when upgrading an existing installation to use decay. It takes the configured decay interval, an index, and an item count as arguments, and returns the number of seconds to subtract from current time. See [Karma Decay](#Karma-Decay) below.
-* `upgrade_modified` (Proc) - A custom callable that upgrades the modified list for a given term. It should take two arguments: the score and a list of user_ids. It should return a list of the form `[[score_1, user_id_1], …]` See [Upgrading](#Upgrading) below.
+* `decay_distributor` (Proc) - A custom callable that defines how karma changes from the same user are distributed in time when upgrading an existing installation to use decay. It takes the configured decay interval, an index, and an item count as arguments, and returns the number of seconds to subtract from current time. See [Karma decay](#karma-decay) below.
+* `upgrade_modified` (Proc) - A custom callable that upgrades the modified list for a given term. It should take two arguments: the score and a list of user_ids. It should return a list of the form `[[score_1, user_id_1], …]` See [Modification counts](#modification-counts) below.
 
 ### Example
 
@@ -153,7 +153,7 @@ end
 
 The `upgrade_modified` callable is used only *ONCE* (per term) on the first launch after the upgrade to >= 3.1.0.
 
-## Karma Decay
+## Karma decay
 
 As of version 3.1.0, lita-karma can age karma changes out over time. When enabled, as the `decay_interval` seconds pass, karma changes disappear, and the term will eventually return to 0 if no further changes are made to it.
 
