@@ -12,7 +12,7 @@ module Lita::Handlers::Karma
         decay_interval - (decay_interval * x.to_f / Math.sqrt(x ** 2 + decay_interval ** 2))
       end
 
-      def default_upgrader(_score, user_ids)
+      def default_modified_upgrader(_score, user_ids)
         user_ids.map { |t| [1, t] }
       end
     end
@@ -23,7 +23,7 @@ module Lita::Handlers::Karma
     config :term_normalizer do
       validate(&CALLABLE_VALIDATOR)
     end
-    config :upgrade_modified, default: method(:default_upgrader) do
+    config :upgrade_modified, default: method(:default_modified_upgrader) do
       validate(&CALLABLE_VALIDATOR)
     end
     config :decay, types: [TrueClass, FalseClass], required: true, default: false

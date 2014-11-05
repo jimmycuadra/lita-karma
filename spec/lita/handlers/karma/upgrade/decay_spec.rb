@@ -45,7 +45,7 @@ describe Lita::Handlers::Karma::Upgrade::Decay, lita_handler: true do
     it 'only creates missing actions' do
       subject.redis.zadd('terms', 7, 'foo')
       subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
-      [:bar, :baz, nil].each {|mod| subject.send(:add_action, 'foo', mod)}
+      [:bar, :baz, nil].each {|mod| subject.send(:add_action, 'foo', mod, 1)}
       subject.decay(payload)
       expect(subject.redis.zcard('actions')).to eq(7)
     end

@@ -46,8 +46,8 @@ module Lita::Handlers::Karma
     end
 
     def decay
-      return unless config.decay
-      cutoff = Time.now.to_i - config.decay_interval
+      return unless decay_enabled?
+      cutoff = Time.now.to_i - decay_interval
       terms = redis.zrangebyscore(:actions, '-inf', cutoff).map { |json| decay_action(json) }
       delete_decayed(terms, cutoff)
     end
@@ -146,6 +146,13 @@ module Lita::Handlers::Karma
       action.term
     end
 
+    def decay_enabled?
+      config.decay && decay_interval > 0
+    end
+
+    def decay_interval
+      config.decay_interval
+    end
     def delete_decayed(terms, cutoff)
       redis.zremrangebyscore(:actions, '-inf', cutoff)
       terms.each { |term| redis.zremrangebyscore("modified:#{term}", '-inf', 0) }
