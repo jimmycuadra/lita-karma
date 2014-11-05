@@ -1,50 +1,18 @@
-module Lita::Handlers::Karma
-  class Upgrade
+module Lita::Handlers::Karma::Upgrade
+  class Decay
     extend Lita::Handler::EventRouter
 
     namespace "karma"
 
-    on :loaded, :upgrade_data
+    on :loaded, :decay
 
-    def upgrade_data(payload)
-      upgrade_links
-      upgrade_modified_counts
-      upgrade_decay
-    end
-
-    def upgrade_links
-      unless redis.exists("support:reverse_links")
-        log.debug "Upgrading data to include reverse links."
-
-        redis.keys("links:*").each do |key|
-          term = key.sub(/^links:/, "")
-          redis.smembers(key).each do |link|
-            redis.sadd("linked_to:#{link}", term)
-          end
-        end
-        redis.incr("support:reverse_links")
-      end
-    end
-
-    def upgrade_modified_counts
-      unless redis.exists('support:modified_counts')
-        log.debug "Upgrading data to include modified counts."
-
-        upgrade = config.upgrade_modified
-
-        all_terms.each { |(term, score)| upgrade_modified_for_term(term, score, upgrade) }
-
-        redis.incr("support:modified_counts")
-      end
-    end
-
-    def upgrade_decay
+    def decay(payload)
       if decay_enabled? && !redis.exists('support:decay')
         log.debug "Upgrading data to include karma decay."
 
         current = Hash.new { |h, k| h[k] = Hash.new {|h,k| h[k] = 0} }
         redis.zrange(:actions, 0, -1).each_with_object(current) do |json, hash|
-          action = Action.from_json(json)
+          action = action_class.from_json(json)
           hash[action.term][action.user_id] += 1
         end
 
@@ -78,9 +46,13 @@ module Lita::Handlers::Karma
 
     private
 
+    def action_class
+      Lita::Handlers::Karma::Action
+    end
+
     def add_action(term, user_id, delta = 1, at = Time.now)
       return unless decay_enabled?
-      action = Action.new(term, user_id, delta, at)
+      action = action_class.new(term, user_id, delta, at)
       redis.zadd(:actions, at.to_f, action.serialize)
     end
 
@@ -91,33 +63,7 @@ module Lita::Handlers::Karma
     def decay_enabled?
       config.decay && config.decay_interval > 0
     end
-
-    def delete_keys(keys)
-      keys.each { |key| redis.del(key) }
-    end
-
-    def set?(key)
-      redis.type(key) == "set"
-    end
-
-    def upgrade_modified_for_term(term, score, upgrade)
-      (key, tmp_key = upgrade_modified_keys_for_term(term)) or return
-      result = upgrade.call(score.to_i, user_ids_for_term(key))
-      delete_keys([key, tmp_key])
-      redis.zadd(key, result)
-    end
-
-    def upgrade_modified_keys_for_term(term)
-      key = "modified:#{term}"
-      return unless set?(key)
-      tmp_key = "modified_flat:#{term}"
-      [key, tmp_key]
-    end
-
-    def user_ids_for_term(key)
-      redis.smembers(key)
-    end
   end
 end
 
-Lita.register_handler(Lita::Handlers::Karma::Upgrade)
+Lita.register_handler(Lita::Handlers::Karma::Upgrade::Decay)
