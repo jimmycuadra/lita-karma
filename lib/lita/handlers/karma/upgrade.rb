@@ -30,23 +30,9 @@ module Lita::Handlers::Karma
       unless redis.exists('support:modified_counts')
         log.debug "Upgrading data to include modified counts."
 
-        terms = redis.zrange('terms', 0, -1, with_scores: true)
-
         upgrade = config.upgrade_modified
 
-        terms.each do |(term, score)|
-          mod_key = "modified:#{term}"
-          next unless redis.type(mod_key) == 'set'
-          tmp_key = "modified_flat:#{term}"
-
-          user_ids = redis.smembers(mod_key)
-          score = score.to_i
-          result = upgrade.call(score, user_ids)
-          redis.rename(mod_key, tmp_key)
-          redis.zadd(mod_key, result)
-          redis.del(tmp_key)
-          log.debug("Karma: Upgraded modified set for '#{term}'")
-        end
+        all_terms.each { |(term, score)| upgrade_modified_for_term(term, score, upgrade) }
 
         redis.incr("support:modified_counts")
       end
@@ -62,10 +48,9 @@ module Lita::Handlers::Karma
           hash[action.term][action.user_id] += 1
         end
 
-        terms = redis.zrange('terms', 0, -1, with_scores: true)
         distributor = config.decay_distributor
 
-        terms.each do |(term, term_score)|
+        all_terms.each do |(term, term_score)|
           mod_key = "modified:#{term}"
           total = 0
           redis.zrange(mod_key, 0, -1, with_scores: true).each do |(mod, mod_score)|
@@ -99,8 +84,38 @@ module Lita::Handlers::Karma
       redis.zadd(:actions, at.to_f, action.serialize)
     end
 
+    def all_terms
+      redis.zrange('terms', 0, -1, with_scores: true)
+    end
+
     def decay_enabled?
       config.decay && config.decay_interval > 0
+    end
+
+    def delete_keys(keys)
+      keys.each { |key| redis.del(key) }
+    end
+
+    def set?(key)
+      redis.type(key) == "set"
+    end
+
+    def upgrade_modified_for_term(term, score, upgrade)
+      (key, tmp_key = upgrade_modified_keys_for_term(term)) or return
+      result = upgrade.call(score.to_i, user_ids_for_term(key))
+      delete_keys([key, tmp_key])
+      redis.zadd(key, result)
+    end
+
+    def upgrade_modified_keys_for_term(term)
+      key = "modified:#{term}"
+      return unless set?(key)
+      tmp_key = "modified_flat:#{term}"
+      [key, tmp_key]
+    end
+
+    def user_ids_for_term(key)
+      redis.smembers(key)
     end
   end
 end
