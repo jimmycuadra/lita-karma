@@ -32,10 +32,6 @@ module Lita::Handlers::Karma
       @link_cache = {}
     end
 
-    def ==(other)
-      term == other.term
-    end
-
     def check
       decay
 
