@@ -51,16 +51,8 @@ module Lita::Handlers::Karma
 
     def decay
       return unless config.decay
-
       cutoff = Time.now.to_i - config.decay_interval
-
-      terms = redis.zrangebyscore(:actions, '-inf', cutoff).map do |json|
-        action = Action.from_json(json)
-        redis.zincrby(:terms, -action.delta, action.term)
-        redis.zincrby("modified:#{action.term}", -1, action.user_id) if action.user_id
-        action.term
-      end
-
+      terms = redis.zrangebyscore(:actions, '-inf', cutoff).map { |json| decay_action(json) }
       delete_decayed(terms, cutoff)
     end
 
@@ -76,11 +68,6 @@ module Lita::Handlers::Karma
         redis.srem("links:#{key}", to_s)
       end
       redis.del("linked_to:#{self}")
-    end
-
-    def delete_decayed(terms, cutoff)
-      redis.zremrangebyscore(:actions, '-inf', cutoff)
-      terms.each { |term| redis.zremrangebyscore("modified:#{term}", '-inf', 0) }
     end
 
     def increment(user)
@@ -154,6 +141,18 @@ module Lita::Handlers::Karma
       return unless config.decay
       action = Action.new(term, user_id, delta, time)
       redis.zadd(:actions, time.to_i, action.serialize)
+    end
+
+    def decay_action(json)
+      action = Action.from_json(json)
+      redis.zincrby(:terms, -action.delta, action.term)
+      redis.zincrby("modified:#{action.term}", -1, action.user_id) if action.user_id
+      action.term
+    end
+
+    def delete_decayed(terms, cutoff)
+      redis.zremrangebyscore(:actions, '-inf', cutoff)
+      terms.each { |term| redis.zremrangebyscore("modified:#{term}", '-inf', 0) }
     end
 
     def modify(user, delta)
