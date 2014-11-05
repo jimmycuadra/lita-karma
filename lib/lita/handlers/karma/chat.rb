@@ -5,6 +5,12 @@ module Lita::Handlers::Karma
 
     on :loaded, :define_routes
 
+    def initialize(robot)
+      super
+
+      Decay.new(robot).call
+    end
+
     def define_routes(payload)
       define_static_routes
       define_dynamic_routes(config.term_pattern.source)

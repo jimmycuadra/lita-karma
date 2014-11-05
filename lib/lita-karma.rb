@@ -16,6 +16,7 @@ end
 require 'lita/handlers/karma/action'
 require "lita/handlers/karma/chat"
 require 'lita/handlers/karma/config'
+require 'lita/handlers/karma/decay'
 require 'lita/handlers/karma/term'
 require 'lita/handlers/karma/upgrade/reverse_links'
 require 'lita/handlers/karma/upgrade/modified_counts'

@@ -1,4 +1,4 @@
-module Lita::Handlers::Karma
+ module Lita::Handlers::Karma
   class Term
     include Lita::Handler::Common
 
@@ -21,7 +21,6 @@ module Lita::Handlers::Karma
         n = 24 if n > 24
 
         handler = new(robot, '', normalize: false)
-        handler.decay
         handler.redis.public_send(redis_command, "terms", 0, n, with_scores: true)
       end
     end
@@ -33,8 +32,6 @@ module Lita::Handlers::Karma
     end
 
     def check
-      decay
-
       string = "#{self}: #{total_score}"
 
       unless links_with_scores.empty?
@@ -43,13 +40,6 @@ module Lita::Handlers::Karma
       end
 
       string
-    end
-
-    def decay
-      return unless decay_enabled?
-      cutoff = Time.now.to_i - decay_interval
-      terms = redis.zrangebyscore(:actions, '-inf', cutoff).map { |json| decay_action(json) }
-      delete_decayed(terms, cutoff)
     end
 
     def decrement(user)
@@ -71,8 +61,6 @@ module Lita::Handlers::Karma
     end
 
     def link(other)
-      decay
-
       if config.link_karma_threshold
         threshold = config.link_karma_threshold.abs
 
@@ -104,8 +92,6 @@ module Lita::Handlers::Karma
     end
 
     def modified
-      decay
-
       redis.zrevrange("modified:#{self}", 0, -1, with_scores: true).map do |(user_id, score)|
         [Lita::User.find_by_id(user_id), score.to_i]
       end
@@ -139,28 +125,7 @@ module Lita::Handlers::Karma
       redis.zadd(:actions, time.to_i, action.serialize)
     end
 
-    def decay_action(json)
-      action = Action.from_json(json)
-      redis.zincrby(:terms, -action.delta, action.term)
-      redis.zincrby("modified:#{action.term}", -1, action.user_id) if action.user_id
-      action.term
-    end
-
-    def decay_enabled?
-      config.decay && decay_interval > 0
-    end
-
-    def decay_interval
-      config.decay_interval
-    end
-    def delete_decayed(terms, cutoff)
-      redis.zremrangebyscore(:actions, '-inf', cutoff)
-      terms.each { |term| redis.zremrangebyscore("modified:#{term}", '-inf', 0) }
-    end
-
     def modify(user, delta)
-      decay
-
       ttl = redis.ttl("cooldown:#{user.id}:#{term}")
 
       if ttl > 0
