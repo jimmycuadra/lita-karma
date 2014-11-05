@@ -8,7 +8,7 @@ describe Lita::Handlers::Karma::Term, lita_handler: true do
   subject { described_class.new(robot, term) }
 
   describe '#decay' do
-    let(:mods) { {bar: 2, baz: 3, nil => 4} }
+    let(:mods) { { bar: 2, baz: 3, nil => 4 } }
     let(:offsets) { {} }
 
     before do
@@ -28,22 +28,22 @@ describe Lita::Handlers::Karma::Term, lita_handler: true do
     it 'should decrement scores' do
       subject.decay
 
-      expect(subject.redis.zscore(:terms, term).to_i).to be(2)
+      expect(subject.redis.zscore(:terms, term).to_i).to eq(2)
     end
 
     it 'should remove decayed actions' do
       subject.decay
 
-      expect(subject.redis.zcard(:actions).to_i).to be(3)
+      expect(subject.redis.zcard(:actions).to_i).to eq(3)
     end
 
     context 'with decayed modifiers' do
-      let(:offsets) { {baz: 1} }
+      let(:offsets) { { baz: 1 } }
 
       it 'should remove them' do
         subject.decay
 
-        expect(subject.redis.zcard("modified:#{term}")).to be(2)
+        expect(subject.redis.zcard("modified:#{term}")).to eq(2)
       end
     end
   end
