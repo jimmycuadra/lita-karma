@@ -8,6 +8,7 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
   before do
     registry.config.handlers.karma.cooldown = nil
     registry.config.handlers.karma.link_karma_threshold = nil
+    registry.config.handlers.karma.decay = false
     described_class.routes.clear
     subject.define_routes(payload)
   end
@@ -61,6 +62,20 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
       send_message("föö++")
       expect(replies.last).to eq("föö: 1")
     end
+
+    context "with decay enabled" do
+      before { registry.config.handlers.karma.decay = true }
+
+      it "creates an action" do
+        expect(Lita::Handlers::Karma::Action).to receive(:create).with(
+          an_instance_of(Redis::Namespace),
+          "foo",
+          user.id,
+          1
+        )
+        send_message("foo++")
+      end
+    end
   end
 
   describe "#decrement" do
@@ -85,6 +100,20 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
       send_message("foo--")
       send_message("foo--")
       expect(replies.last).to match(/cannot modify foo/)
+    end
+
+    context "with decay enabled" do
+      before { registry.config.handlers.karma.decay = true }
+
+      it "creates an action" do
+        expect(Lita::Handlers::Karma::Action).to receive(:create).with(
+          an_instance_of(Redis::Namespace),
+          "foo",
+          user.id,
+          -1
+        )
+        send_message("foo--")
+      end
     end
   end
 

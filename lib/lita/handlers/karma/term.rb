@@ -128,10 +128,19 @@
     private
 
     def add_action(user_id, delta)
-      return unless config.decay
+      return unless decay_enabled?
 
       Action.create(redis, term, user_id, delta)
     end
+
+    def decay_enabled?
+      config.decay && decay_interval > 0
+    end
+
+    def decay_interval
+      config.decay_interval
+    end
+
 
     def modify(user, delta)
       ttl = redis.ttl("cooldown:#{user.id}:#{term}")
