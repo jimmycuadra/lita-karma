@@ -15,12 +15,16 @@ module Lita::Handlers::Karma
       def default_modified_upgrader(_score, user_ids)
         user_ids.map { |t| [1, t] }
       end
+
+      def default_term_normalizer(term)
+        term.to_s.downcase.strip
+      end
     end
 
     config :cooldown, types: [Integer, nil], default: 300
     config :link_karma_threshold, types: [Integer, nil], default: 10
     config :term_pattern, type: Regexp, default: /[\[\]\p{Word}\._|\{\}]{2,}/
-    config :term_normalizer do
+    config :term_normalizer, default: method(:default_term_normalizer) do
       validate(&CALLABLE_VALIDATOR)
     end
     config :upgrade_modified, default: method(:default_modified_upgrader) do

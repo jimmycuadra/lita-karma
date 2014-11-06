@@ -145,11 +145,7 @@
     end
 
     def normalize_term(term)
-      if config.term_normalizer
-        config.term_normalizer.call(term)
-      else
-        term.to_s.downcase.strip
-      end
+      config.term_normalizer.call(term)
     end
   end
 end
