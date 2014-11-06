@@ -56,6 +56,14 @@
       redis.del("linked_to:#{self}")
     end
 
+    def eql?(other)
+      term.eql?(other.term)
+    end
+
+    def hash
+      term.hash
+    end
+
     def increment(user)
       modify(user, 1)
     end

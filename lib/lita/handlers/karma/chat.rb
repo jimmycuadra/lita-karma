@@ -25,7 +25,16 @@ module Lita::Handlers::Karma
     end
 
     def check(response)
-      response.reply *response.matches.map { |match| get_term(match[0]).check }
+      seen = Set.new
+
+      output = response.matches.map do |match|
+        term = get_term(match[0])
+        next if seen.include?(term)
+        seen << term
+        term.check
+      end.compact
+
+      response.reply *output
     end
 
     def list_best(response)

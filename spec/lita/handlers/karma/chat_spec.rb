@@ -98,6 +98,11 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
       send_message("foo~~ bar~~")
       expect(replies).to eq(["foo: 0", "bar: 0"])
     end
+
+    it "doesn't match the same term multiple times in one message" do
+      send_message("foo~~ foo~~")
+      expect(replies.size).to eq(1)
+    end
   end
 
   describe "#list" do
