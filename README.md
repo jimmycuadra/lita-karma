@@ -181,6 +181,10 @@ end
 
 The `decay_distributor` callable is used only *ONCE* on the first launch after the upgrade to >= 3.1.0.
 
+## Upgrade time and deployment to Heroku
+
+If your Lita installation has a lot of karma data that needs to be upgraded, it's possible that Lita will not boot within 60 seconds, which is required by Heroku for all processes of type "web". To get around this, change the name of the process in your Procfile to something else, like "lita", deploy it, wait for the data upgrade to finish, then switch it back to "web" and deploy again when you're done. The process name should stay as "web" permanently because Heroku does not route public HTTP requests to processes of any other name.
+
 ## License
 
 [MIT](http://opensource.org/licenses/MIT)
