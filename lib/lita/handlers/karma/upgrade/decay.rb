@@ -26,10 +26,10 @@ module Lita::Handlers::Karma::Upgrade
       Lita::Handlers::Karma::Action
     end
 
-    def add_action(term, user_id, delta, time = Time.now)
+    def add_action(term, user_id, delta, time)
       return unless decay_enabled?
-      action = action_class.new(term, user_id, delta, time)
-      redis.zadd(:actions, time.to_i, action.serialize)
+
+      action_class.create(redis, term, user_id, delta, time)
     end
 
     def all_actions

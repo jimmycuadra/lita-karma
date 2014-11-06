@@ -127,10 +127,10 @@
 
     private
 
-    def add_action(user_id, delta, time = Time.now)
+    def add_action(user_id, delta)
       return unless config.decay
-      action = Action.new(term, user_id, delta, time)
-      redis.zadd(:actions, time.to_i, action.serialize)
+
+      Action.create(redis, term, user_id, delta)
     end
 
     def modify(user, delta)

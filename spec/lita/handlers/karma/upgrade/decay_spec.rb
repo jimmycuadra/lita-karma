@@ -14,7 +14,7 @@ describe Lita::Handlers::Karma::Upgrade::Decay, lita_handler: true do
 
     it 'creates actions for every counted modification' do
       subject.redis.zadd('terms', 5, 'foo')
-      subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
+      subject.redis.zadd('modified:foo', { joe: 2, amy: 3 }.invert.to_a)
       subject.decay(payload)
       expect(subject.redis.zcard('actions')).to eq(5)
     end
@@ -24,7 +24,7 @@ describe Lita::Handlers::Karma::Upgrade::Decay, lita_handler: true do
         1000 * (i + 1)
       end
       subject.redis.zadd('terms', 5, 'foo')
-      subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
+      subject.redis.zadd('modified:foo', { joe: 2, amy: 3 }.invert.to_a)
       time = Time.now
       subject.decay(payload)
       actions = subject.redis.zrange('actions', 0, -1, with_scores: true)
@@ -37,15 +37,17 @@ describe Lita::Handlers::Karma::Upgrade::Decay, lita_handler: true do
 
     it 'creates anonymous actions for the unknown modifications' do
       subject.redis.zadd('terms', 50, 'foo')
-      subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
+      subject.redis.zadd('modified:foo', { joe: 2, amy: 3 }.invert.to_a)
       subject.decay(payload)
       expect(subject.redis.zcard('actions')).to eq(50)
     end
 
     it 'only creates missing actions' do
       subject.redis.zadd('terms', 7, 'foo')
-      subject.redis.zadd('modified:foo', {bar: 2, baz: 3}.invert.to_a)
-      [:bar, :baz, nil].each {|mod| subject.send(:add_action, 'foo', mod, 1)}
+      subject.redis.zadd('modified:foo', { joe: 2, amy: 3 }.invert.to_a)
+      [:joe, :amy, nil].each do |modifying_user_id|
+        Lita::Handlers::Karma::Action.create(subject.redis, 'foo', modifying_user_id, 1)
+      end
       subject.decay(payload)
       expect(subject.redis.zcard('actions')).to eq(7)
     end

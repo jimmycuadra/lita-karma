@@ -1,17 +1,12 @@
 require "spec_helper"
 
 describe Lita::Handlers::Karma::Decay, lita_handler: true do
-  def add_action(term, user_id, delta, time)
-    action = Lita::Handlers::Karma::Action.new(term, user_id, delta, time)
-    subject.redis.zadd(:actions, time.to_i, action.serialize)
-  end
-
   prepend_before { registry.register_handler(Lita::Handlers::Karma::Config) }
 
   let(:term) { "foo" }
 
   describe '#call' do
-    let(:mods) { { bar: 2, baz: 3, nil => 4 } }
+    let(:modifications) { { joe: 2, amy: 3, nil => 4 } }
     let(:offsets) { {} }
 
     before do
@@ -19,11 +14,17 @@ describe Lita::Handlers::Karma::Decay, lita_handler: true do
       registry.config.handlers.karma.decay_interval = 24 * 60 * 60
 
       subject.redis.zadd('terms', 8, term)
-      subject.redis.zadd("modified:#{term}", mods.invert.to_a)
-      mods.each do |mod, score|
-        offset = offsets[mod].to_i
+      subject.redis.zadd("modified:#{term}", modifications.invert.to_a)
+      modifications.each do |modifying_user_id, score|
+        offset = offsets[modifying_user_id].to_i
         score.times do |i|
-          add_action(term, mod, 1, Time.now - (i + offset) * 24 * 60 * 60)
+          Lita::Handlers::Karma::Action.create(
+            subject.redis,
+            term,
+            modifying_user_id,
+            1,
+            Time.now - (i + offset) * 24 * 60 * 60
+          )
         end
       end
     end
@@ -41,7 +42,7 @@ describe Lita::Handlers::Karma::Decay, lita_handler: true do
     end
 
     context 'with decayed modifiers' do
-      let(:offsets) { { baz: 1 } }
+      let(:offsets) { { amy: 1 } }
 
       it 'should remove them' do
         subject.call
