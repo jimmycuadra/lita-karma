@@ -17,7 +17,8 @@ module Lita::Handlers::Karma::Upgrade
         backfill_term(term, score.to_i)
       end
 
-      redis.incr('support:decay')
+      redis.del('support:decay')
+      redis.incr('support:decay_with_negatives')
     end
 
     private
@@ -75,7 +76,7 @@ module Lita::Handlers::Karma::Upgrade
     end
 
     def decay_already_processed?
-      redis.exists('support:decay')
+      redis.exists('support:decay_with_negatives')
     end
 
     def decay_enabled?
