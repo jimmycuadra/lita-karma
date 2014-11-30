@@ -15,6 +15,8 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
 
   it { is_expected.to route("foo++").to(:increment) }
   it { is_expected.to route("foo--").to(:decrement) }
+  it { is_expected.to route("foo++ bar").to(:increment) }
+  it { is_expected.to route("foo-- bar").to(:decrement) }
   it { is_expected.to route("foo~~").to(:check) }
   it { is_expected.to route_command("karma best").to(:list_best) }
   it { is_expected.to route_command("karma worst").to(:list_worst) }
@@ -27,6 +29,8 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
   it { is_expected.to route_command("foo -= bar").to(:unlink) }
   it { is_expected.not_to route("+++++").to(:increment) }
   it { is_expected.not_to route("-----").to(:decrement) }
+  it { is_expected.not_to route("foo++bar").to(:increment) }
+  it { is_expected.not_to route("foo--bar").to(:decrement) }
 
   describe "#increment" do
     it "increases the term's score by one and says the new score" do

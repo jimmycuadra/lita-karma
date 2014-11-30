@@ -103,33 +103,34 @@ module Lita::Handlers::Karma
     private
 
     def define_dynamic_routes(pattern)
+      terminator = %r{(?:(?=\s)|$)}
       self.class.route(
-        %r{(#{pattern})\+\+},
+        %r{(#{pattern})\+\+#{terminator}},
         :increment,
         help: { t("help.increment_key") => t("help.increment_value") }
       )
 
       self.class.route(
-        %r{(#{pattern})\-\-},
+        %r{(#{pattern})\-\-#{terminator}},
         :decrement,
         help: { t("help.decrement_key") => t("help.decrement_value") }
       )
 
       self.class.route(
-        %r{(#{pattern})~~},
+        %r{(#{pattern})~~#{terminator}},
         :check,
         help: { t("help.check_key") => t("help.check_value") }
       )
 
       self.class.route(
-        %r{^(#{pattern})\s*\+=\s*(#{pattern})},
+        %r{^(#{pattern})\s*\+=\s*(#{pattern})#{terminator}},
         :link,
         command: true,
         help: { t("help.link_key") => t("help.link_value") }
       )
 
       self.class.route(
-        %r{^(#{pattern})\s*-=\s*(#{pattern})},
+        %r{^(#{pattern})\s*-=\s*(#{pattern})#{terminator}},
         :unlink,
         command: true,
         help: { t("help.unlink_key") => t("help.unlink_value") }
