@@ -44,6 +44,7 @@ module Lita::Handlers::Karma::Upgrade
       key = "modified:#{term}"
       total = 0
       distributor = config.decay_distributor
+      score_sign = (score <=> 0)
 
       modified_counts_for(key).each do |(user_id, count)|
         count = count.to_i
@@ -51,7 +52,7 @@ module Lita::Handlers::Karma::Upgrade
 
         (count - current[term][user_id]).times do |i|
           action_time = Time.now - distributor.call(decay_interval, i, count)
-          add_action(term, user_id, 1, action_time)
+          add_action(term, user_id, score_sign, action_time)
         end
       end
 
@@ -59,12 +60,13 @@ module Lita::Handlers::Karma::Upgrade
     end
 
     def backfill_term_anonymously(score, total, term)
-      remainder = score - total - current[term][nil]
+      remainder = score.abs - total - current[term][nil]
       distributor = config.decay_distributor
+      score_sign = (score <=> 0)
 
       remainder.times do |i|
         action_time = Time.now - distributor.call(decay_interval, i, remainder)
-        add_action(term, nil, 1, action_time)
+        add_action(term, nil, score_sign, action_time)
       end
     end
 
