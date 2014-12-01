@@ -9,6 +9,8 @@ module Lita::Handlers::Karma
       cutoff = Time.now.to_i - decay_interval
       terms = redis.zrangebyscore(:actions, '-inf', cutoff).map { |json| decay_from_action(json) }
       delete_old_actions_for(terms, cutoff)
+      delete_zero_terms
+      true
     end
 
     private
@@ -35,6 +37,10 @@ module Lita::Handlers::Karma
 
     def delete_zero_modifiers_for(terms)
       terms.each { |term| redis.zremrangebyscore("modified:#{term}", '-inf', 0) }
+    end
+
+    def delete_zero_terms
+      redis.zremrangebyscore(:terms, 0, 0)
     end
   end
 end

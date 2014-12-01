@@ -39,7 +39,7 @@ describe Lita::Handlers::Karma::Decay, lita_handler: true do
       it 'should remove decayed actions' do
         subject.call
 
-        expect(subject.redis.zcard(:actions).to_i).to eq(3)
+        expect(subject.redis.zcard(:actions)).to eq(3)
       end
 
       context 'with decayed modifiers' do
@@ -49,6 +49,15 @@ describe Lita::Handlers::Karma::Decay, lita_handler: true do
           subject.call
 
           expect(subject.redis.zcard("modified:#{term}")).to eq(2)
+        end
+      end
+
+      context 'all actions decayed' do
+        let(:offsets) { {amy: 2, joe: 3, nil => 4} }
+
+        it 'should remove terms decayed to zero' do
+          subject.call
+          expect(subject.redis.zcard(:terms)).to eq(0)
         end
       end
     end
