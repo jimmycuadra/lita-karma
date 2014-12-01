@@ -145,7 +145,7 @@ This behavior is customizable via the `upgrade_modified` callable invoked on the
 Lita.configure do |config|
   config.handlers.karma.upgrade_modified = lambda do |score, user_ids|
     user_ids.each_with_index.map do |uid, i|
-      [score / user_ids.size + (i < score % size ? 1 : 0), uid]
+      [score.abs / user_ids.size + (i < score.abs % user_ids.size ? 1 : 0), uid]
     end
   end
 end
