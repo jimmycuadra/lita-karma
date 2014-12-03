@@ -104,32 +104,32 @@ module Lita::Handlers::Karma
 
     def define_dynamic_routes(pattern)
       self.class.route(
-        %r{(#{pattern})\+\+},
+        %r{(#{pattern})\+\+#{token_terminator.source}},
         :increment,
         help: { t("help.increment_key") => t("help.increment_value") }
       )
 
       self.class.route(
-        %r{(#{pattern})\-\-},
+        %r{(#{pattern})--#{token_terminator.source}},
         :decrement,
         help: { t("help.decrement_key") => t("help.decrement_value") }
       )
 
       self.class.route(
-        %r{(#{pattern})~~},
+        %r{(#{pattern})~~#{token_terminator.source}},
         :check,
         help: { t("help.check_key") => t("help.check_value") }
       )
 
       self.class.route(
-        %r{^(#{pattern})\s*\+=\s*(#{pattern})},
+        %r{^(#{pattern})\s*\+=\s*(#{pattern})#{token_terminator.source}},
         :link,
         command: true,
         help: { t("help.link_key") => t("help.link_value") }
       )
 
       self.class.route(
-        %r{^(#{pattern})\s*-=\s*(#{pattern})},
+        %r{^(#{pattern})\s*-=\s*(#{pattern})#{token_terminator.source}},
         :unlink,
         command: true,
         help: { t("help.unlink_key") => t("help.unlink_value") }
@@ -198,6 +198,14 @@ module Lita::Handlers::Karma
       response.reply *response.matches.map { |match|
         get_term(match[0]).public_send(method_name, user)
       }
+    end
+
+    # To ensure that constructs like foo++bar or foo--bar (the latter is
+    # common in some URL generation schemes) do not cause errant karma
+    # modifications, force karma tokens be followed by whitespace (in a zero-
+    # width, look-ahead operator) or the end of the string.
+    def token_terminator
+      %r{(?:(?=\s)|$)}
     end
   end
 end
