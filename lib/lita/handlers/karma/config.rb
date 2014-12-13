@@ -8,8 +8,7 @@ module Lita::Handlers::Karma
 
     class << self
       def default_decay_distributor(decay_interval, index, item_count)
-        x = 4 * decay_interval / (item_count + 1) * (index + 1)
-        decay_interval - (decay_interval * x.to_f / Math.sqrt(x ** 2 + decay_interval ** 2))
+        decay_interval.to_f / (item_count + 1) * (index + 1)
       end
 
       def default_modified_upgrader(_score, user_ids)

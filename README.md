@@ -157,7 +157,7 @@ The `upgrade_modified` callable is used only *ONCE* (per term) on the first laun
 
 As of version 3.1.0, lita-karma can age karma changes out over time. When enabled, as the `decay_interval` seconds pass, karma changes disappear, and the term will eventually return to 0 if no further changes are made to it.
 
-By default the upgrade uses an asymptotic function on the actions of a given user that will cause decay to start slowly but accellerate over time. The more actions for the given user, the softer the curve.
+By default the upgrade uses an even distribution of actions for a given user across the decay interval.
 
 The creation times of these actions are configurable, using the `decay_distributor` Proc. For example, to set all of the creation times to the upgrade time:
 
