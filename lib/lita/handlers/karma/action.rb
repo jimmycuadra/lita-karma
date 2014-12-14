@@ -3,7 +3,7 @@ module Lita::Handlers::Karma
     class << self
       def create(redis, term, user_id, delta, time = Time.now)
         action = new(term, user_id, delta, time)
-        redis.zadd(:actions, time.to_i, action.serialize)
+        redis.zadd(:actions, time.to_f, action.serialize)
       end
 
       def from_json(string)
@@ -14,7 +14,7 @@ module Lita::Handlers::Karma
     end
 
     def serialize
-      MultiJson.dump([term, user_id, delta, time.to_i])
+      MultiJson.dump([term, user_id, delta, time.to_f])
     end
   end
 end

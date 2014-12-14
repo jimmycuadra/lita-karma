@@ -30,8 +30,8 @@ describe Lita::Handlers::Karma::Upgrade::Decay, lita_handler: true do
         subject.decay(payload)
         actions = subject.redis.zrange('actions', 0, -1, with_scores: true)
 
-        # bar gets 1k & 2k, baz get 3k, 2k, & 1k
-        [3,2,2,1,1].zip(actions.map(&:last)).each do |expectation, value|
+        # joe gets 1k & 3k, amy gets 2k, 4k, & 5k
+        (1..5).to_a.reverse.zip(actions.map(&:last)).each do |expectation, value|
           expect((time - value).to_f).to be_within(100).of(expectation * 1000)
         end
       end
@@ -44,6 +44,27 @@ describe Lita::Handlers::Karma::Upgrade::Decay, lita_handler: true do
           Lita::Handlers::Karma::Action.from_json(x[0]).delta
         end
         expect(action_scores.inject(0, &:+)).to eq(sign * 50)
+      end
+
+      it 'creates anonymous actions that decay before known actor modifications' do
+        registry.config.handlers.karma.decay_distributor = Proc.new do |interval, i, count|
+          1000 * (i + 1)
+        end
+
+        subject.redis.zadd('terms', sign * 10, 'foo')
+        subject.redis.zadd('modified:foo', { joe: 2, amy: 3 }.invert.to_a)
+        time = Time.now
+        subject.decay(payload)
+        actions = subject.redis.zrange('actions', 0, -1, with_scores: true).map do |x|
+          Lita::Handlers::Karma::Action.from_json(x[0])
+        end
+
+        users = ([nil] * 5) + %w{amy amy joe amy joe}
+
+        (1..10).to_a.reverse.zip(users, actions).each do |diff, user_id, action|
+          expect(action.user_id).to eql(user_id)
+          expect((time - action.time).to_f).to be_within(100).of(1000 * diff)
+        end
       end
 
       it 'only creates missing actions' do

@@ -16,6 +16,7 @@ describe Lita::Handlers::Karma::Decay, lita_handler: true do
 
         subject.redis.zadd('terms', sign * modifications.values.inject(0, &:+), term)
         subject.redis.zadd("modified:#{term}", modifications.invert.to_a)
+
         modifications.each do |modifying_user_id, score|
           offset = offsets[modifying_user_id].to_i
           score.times do |i|
@@ -24,7 +25,7 @@ describe Lita::Handlers::Karma::Decay, lita_handler: true do
               term,
               modifying_user_id,
               sign,
-              Time.now - (i + offset) * 24 * 60 * 60
+              Time.now - (i + offset) * 24 * 60 * 60 - 1
             )
           end
         end
