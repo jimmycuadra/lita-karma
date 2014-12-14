@@ -44,29 +44,47 @@ module Lita::Handlers::Karma::Upgrade
     def backfill_term(term, score)
       key = "modified:#{term}"
       total = 0
+
+      modified = modified_counts_for(key)
+
+      modified.keys.each do |user_id|
+        modified[user_id] -= current[term][user_id]
+        total += current[term][user_id]
+      end
+
+      total = backfill_round_robin(term, score, modified, total)
+
+      backfill_term_anonymously(term, score, total)
+    end
+
+    def backfill_round_robin(term, score, modified, total)
       distributor = config.decay_distributor
       score_sign = (score <=> 0)
 
-      modified_counts_for(key).each do |(user_id, count)|
-        count = count.to_i
-        total += count
-
-        (count - current[term][user_id]).times do |i|
-          action_time = Time.now - distributor.call(decay_interval, i, count)
-          add_action(term, user_id, score_sign, action_time)
+      begin
+        modified.each do |user_id, count|
+          if count > 0
+            index = total + current[term][user_id]
+            action_time = Time.now - distributor.call(decay_interval, index, score.abs)
+            add_action(term, user_id, score_sign, action_time)
+            total += 1
+            modified[user_id] -= 1
+          else
+            modified.delete(user_id)
+          end
         end
-      end
+      end until modified.empty?
 
-      backfill_term_anonymously(score, total, term)
+      return total
     end
 
-    def backfill_term_anonymously(score, total, term)
+    def backfill_term_anonymously(term, score, total)
       remainder = score.abs - total - current[term][nil]
       distributor = config.decay_distributor
       score_sign = (score <=> 0)
 
       remainder.times do |i|
-        action_time = Time.now - distributor.call(decay_interval, i, remainder)
+        action_time = Time.now - distributor.call(decay_interval, i + remainder, remainder)
         add_action(term, nil, score_sign, action_time)
       end
     end
@@ -88,7 +106,7 @@ module Lita::Handlers::Karma::Upgrade
     end
 
     def modified_counts_for(key)
-      redis.zrange(key, 0, -1, with_scores: true)
+      Hash[redis.zrange(key, 0, -1, with_scores: true).map {|uid, score| [uid, score.to_i]}]
     end
 
     def populate_current
