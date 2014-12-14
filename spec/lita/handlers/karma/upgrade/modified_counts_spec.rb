@@ -36,5 +36,12 @@ describe Lita::Handlers::Karma::Upgrade::ModifiedCounts, lita_handler: true do
         [['bar', 0.0], ['baz', 2.0]]
       )
     end
+
+    it 'upgrades the sets for which there are no terms' do
+      subject.redis.sadd('modified:bar', %w{baz bot})
+
+      subject.modified_counts(payload)
+      expect(subject.redis.type('modified:bar')).to eq 'zset'
+    end
   end
 end
