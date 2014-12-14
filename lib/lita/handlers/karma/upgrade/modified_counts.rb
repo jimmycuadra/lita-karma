@@ -12,7 +12,7 @@ module Lita::Handlers::Karma::Upgrade
 
         upgrade = config.upgrade_modified
 
-        all_terms.each { |(term, score)| upgrade_term(term, score, upgrade) }
+        all_terms.each { |term, score| upgrade_term(term, score, upgrade) }
 
         redis.incr("support:modified_counts")
       end
@@ -21,7 +21,9 @@ module Lita::Handlers::Karma::Upgrade
     private
 
     def all_terms
-      redis.zrange('terms', 0, -1, with_scores: true)
+      Hash[redis.zrange('terms', 0, -1, with_scores: true)].merge!(
+        Hash[redis.keys('modified:*').map{|x| [x.gsub(/^modified:/, ''), 0]}]
+      ) {|key, left, right| left }
     end
 
     def delete_keys(keys)
