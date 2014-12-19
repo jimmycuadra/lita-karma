@@ -100,8 +100,8 @@
     end
 
     def modified
-      redis.zrevrange("modified:#{self}", 0, -1, with_scores: true).map do |(user_id, score)|
-        [Lita::User.find_by_id(user_id), score.to_i]
+      redis.smembers("modified:#{term}").map do |user_id|
+        Lita::User.find_by_id(user_id)
       end
     end
 
@@ -127,21 +127,6 @@
 
     private
 
-    def add_action(user_id, delta)
-      return unless decay_enabled?
-
-      Action.create(redis, term, user_id, delta)
-    end
-
-    def decay_enabled?
-      config.decay && decay_interval > 0
-    end
-
-    def decay_interval
-      config.decay_interval
-    end
-
-
     def modify(user, delta)
       ttl = redis.ttl("cooldown:#{user.id}:#{term}")
 
@@ -155,9 +140,8 @@
     def modify!(user, delta)
       user_id = user.id
       redis.zincrby("terms", delta, term)
-      redis.zincrby("modified:#{self}", 1, user_id)
+      redis.sadd("modified:#{self}", user_id)
       redis.setex("cooldown:#{user_id}:#{self}", config.cooldown, 1) if config.cooldown
-      add_action(user_id, delta)
       check
     end
 
