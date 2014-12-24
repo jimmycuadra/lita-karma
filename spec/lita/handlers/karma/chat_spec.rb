@@ -25,7 +25,13 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
   end
   it { is_expected.to route_command("karma").to(:list_best) }
   it { is_expected.to route_command("foo += bar").to(:link) }
+  it { is_expected.to route_command("foo += bar++").to(:link) }
+  it { is_expected.to route_command("foo += bar--").to(:link) }
+  it { is_expected.to route_command("foo += bar~~").to(:link) }
   it { is_expected.to route_command("foo -= bar").to(:unlink) }
+  it { is_expected.to route_command("foo -= bar++").to(:unlink) }
+  it { is_expected.to route_command("foo -= bar--").to(:unlink) }
+  it { is_expected.to route_command("foo -= bar~~").to(:unlink) }
   it { is_expected.not_to route("+++++").to(:increment) }
   it { is_expected.not_to route("-----").to(:decrement) }
   it { is_expected.not_to route("foo++bar").to(:increment) }

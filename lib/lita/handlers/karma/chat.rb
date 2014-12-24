@@ -112,14 +112,14 @@ module Lita::Handlers::Karma
       )
 
       self.class.route(
-        %r{^(#{pattern})\s*\+=\s*(#{pattern})#{token_terminator.source}},
+        %r{^(#{pattern})\s*\+=\s*(#{pattern})(?:\+\+|--|~~)?#{token_terminator.source}},
         :link,
         command: true,
         help: { t("help.link_key") => t("help.link_value") }
       )
 
       self.class.route(
-        %r{^(#{pattern})\s*-=\s*(#{pattern})#{token_terminator.source}},
+        %r{^(#{pattern})\s*-=\s*(#{pattern})(?:\+\+|--|~~)?#{token_terminator.source}},
         :unlink,
         command: true,
         help: { t("help.unlink_key") => t("help.unlink_value") }
