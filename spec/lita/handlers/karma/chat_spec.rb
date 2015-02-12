@@ -45,7 +45,7 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
 
     it "matches multiple terms in one message" do
       send_message("foo++ bar++")
-      expect(replies).to eq(["foo: 1", "bar: 1"])
+      expect(replies.last).to eq("foo: 1; bar: 1")
     end
 
     it "doesn't start from zero if the term already has a positive score" do
@@ -81,7 +81,7 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
 
     it "matches multiple terms in one message" do
       send_message("foo-- bar--")
-      expect(replies).to eq(["foo: -1", "bar: -1"])
+      expect(replies.last).to eq("foo: -1; bar: -1")
     end
 
     it "doesn't start from zero if the term already has a positive score" do
@@ -106,7 +106,7 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
 
     it "matches multiple terms in one message" do
       send_message("foo~~ bar~~")
-      expect(replies).to eq(["foo: 0", "bar: 0"])
+      expect(replies.last).to eq("foo: 0; bar: 0")
     end
 
     it "doesn't match the same term multiple times in one message" do

@@ -28,7 +28,7 @@ module Lita::Handlers::Karma
         term.check
       end.compact
 
-      response.reply *output
+      response.reply output.join("; ")
     end
 
     def list_best(response)
@@ -185,9 +185,12 @@ module Lita::Handlers::Karma
 
     def modify(response, method_name)
       user = response.user
-      response.reply *response.matches.map { |match|
+
+      output = response.matches.map do |match|
         get_term(match[0]).public_send(method_name, user)
-      }
+      end
+
+      response.reply output.join("; ")
     end
 
     # To ensure that constructs like foo++bar or foo--bar (the latter is
