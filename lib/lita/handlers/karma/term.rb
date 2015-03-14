@@ -59,6 +59,7 @@
     def eql?(other)
       term.eql?(other.term)
     end
+    alias_method :==, :eql?
 
     def hash
       term.hash
