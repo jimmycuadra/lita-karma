@@ -9,7 +9,6 @@ describe Lita::Handlers::Karma::Chat, lita_handler: true do
     registry.config.handlers.karma.cooldown = nil
     registry.config.handlers.karma.link_karma_threshold = nil
     described_class.routes.clear
-    subject.define_routes(payload)
   end
 
   it { is_expected.to route("foo++").to(:increment) }
@@ -311,8 +310,6 @@ MSG
       registry.config.handlers.karma.term_normalizer = lambda do |term|
         term.to_s.downcase.strip.sub(/[<:]([^>:]+)[>:]/, '\1')
       end
-      described_class.routes.clear
-      subject.define_routes(payload)
     end
 
     it "increments multi-word terms bounded by delimeters" do
